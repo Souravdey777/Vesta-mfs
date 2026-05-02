@@ -7,6 +7,7 @@ import {
   loadSavedFilter,
   saveSavedFilter,
   SAVED_FILTERS_STORAGE_KEY,
+  syncAnonymousSavedFilters,
   type SupabaseLike
 } from "@/lib/saved-filters";
 import type { FilterState, SavedFilterRow } from "@/lib/types";
@@ -154,6 +155,126 @@ describe("saved filter persistence", () => {
     expect(mock.calls).toContain("select:eq:user_id:user-1");
     expect(mock.calls).toContain("upsert:user-1:high growth");
     expect(mock.calls).toContain("delete:eq:user_id:user-1:eq:normalized_name:tax saving");
+  });
+
+  it("syncs non-conflicting anonymous filters into Supabase after confirmation", async () => {
+    const mock = createMockSupabase([
+      {
+        id: "row-1",
+        user_id: "user-1",
+        name: "tax saving",
+        normalized_name: "tax saving",
+        filters: { category: "ELSS" },
+        created_at: "2026-05-01T00:00:00.000Z",
+        updated_at: "2026-05-01T00:00:00.000Z"
+      }
+    ]);
+    await saveSavedFilter({
+      storage: window.localStorage,
+      name: "retirement",
+      filters: { category: "Large Cap", min_aum_cr: 1000 }
+    });
+
+    const synced = await syncAnonymousSavedFilters({
+      supabase: mock.client,
+      storage: window.localStorage
+    });
+
+    expect(synced.status).toBe("synced");
+    expect(synced.status === "synced" ? synced.importedNames : []).toEqual(["retirement"]);
+    expect(synced.savedFilters.retirement?.filters).toEqual({
+      category: "Large Cap",
+      min_aum_cr: 1000
+    });
+    expect(window.localStorage.getItem(SAVED_FILTERS_STORAGE_KEY)).toBe("{}");
+  });
+
+  it("returns conflicts without silently overwriting Supabase filters", async () => {
+    const mock = createMockSupabase([
+      {
+        id: "row-1",
+        user_id: "user-1",
+        name: "retirement",
+        normalized_name: "retirement",
+        filters: { category: "Debt" },
+        created_at: "2026-05-01T00:00:00.000Z",
+        updated_at: "2026-05-01T00:00:00.000Z"
+      }
+    ]);
+    await saveSavedFilter({
+      storage: window.localStorage,
+      name: "Retirement",
+      filters: { category: "Large Cap" }
+    });
+
+    const conflicted = await syncAnonymousSavedFilters({
+      supabase: mock.client,
+      storage: window.localStorage
+    });
+
+    expect(conflicted.status).toBe("conflicts");
+    expect(conflicted.status === "conflicts" ? conflicted.conflicts[0]?.name : null).toBe("retirement");
+    expect(conflicted.savedFilters.retirement?.filters).toEqual({ category: "Debt" });
+    expect(JSON.parse(window.localStorage.getItem(SAVED_FILTERS_STORAGE_KEY) ?? "{}")).toHaveProperty(
+      "retirement"
+    );
+  });
+
+  it("resolves sync conflicts by overwriting or renaming only when explicit", async () => {
+    const mock = createMockSupabase([
+      {
+        id: "row-1",
+        user_id: "user-1",
+        name: "retirement",
+        normalized_name: "retirement",
+        filters: { category: "Debt" },
+        created_at: "2026-05-01T00:00:00.000Z",
+        updated_at: "2026-05-01T00:00:00.000Z"
+      },
+      {
+        id: "row-2",
+        user_id: "user-1",
+        name: "tax saving",
+        normalized_name: "tax saving",
+        filters: { category: "ELSS" },
+        created_at: "2026-05-01T00:00:00.000Z",
+        updated_at: "2026-05-01T00:00:00.000Z"
+      }
+    ]);
+    await saveSavedFilter({
+      storage: window.localStorage,
+      name: "Retirement",
+      filters: { category: "Large Cap" }
+    });
+    await saveSavedFilter({
+      storage: window.localStorage,
+      name: "Tax Saving",
+      filters: { category: "Index" }
+    });
+
+    const resolved = await syncAnonymousSavedFilters({
+      supabase: mock.client,
+      storage: window.localStorage,
+      conflictResolutions: [
+        {
+          name: "retirement",
+          action: "rename_local",
+          renameTo: "retirement local"
+        },
+        {
+          name: "tax saving",
+          action: "overwrite_supabase"
+        }
+      ]
+    });
+
+    expect(resolved.status).toBe("synced");
+    expect(resolved.savedFilters.retirement?.filters).toEqual({ category: "Debt" });
+    expect(resolved.savedFilters["retirement local"]?.filters).toEqual({
+      category: "Large Cap"
+    });
+    expect(resolved.savedFilters["tax saving"]?.filters).toEqual({ category: "Index" });
+    expect(window.localStorage.getItem(SAVED_FILTERS_STORAGE_KEY)).toBe("{}");
   });
 });
 

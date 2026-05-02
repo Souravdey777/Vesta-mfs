@@ -24,6 +24,15 @@ export type SupabaseLike = {
         message: string;
       } | null;
     }>;
+    onAuthStateChange?(
+      callback: (event: string, session: unknown) => void
+    ): {
+      data?: {
+        subscription?: {
+          unsubscribe(): void;
+        };
+      };
+    };
   };
   from(table: string): unknown;
 };
@@ -98,6 +107,44 @@ export type DeleteSavedFilterResult =
       status: "invalid_name";
       source: SavedFiltersSource;
       savedFilters: SavedFilters;
+    };
+
+export type SavedFiltersSyncConflict = {
+  name: string;
+  local: SavedFilterRecord;
+  supabase: SavedFilterRecord;
+};
+
+export type SavedFiltersSyncResolution = {
+  name: string;
+  action: "keep_supabase" | "overwrite_supabase" | "rename_local";
+  renameTo?: string;
+};
+
+export type SyncAnonymousSavedFiltersResult =
+  | {
+      status: "pending";
+      source: "localStorage";
+      savedFilters: SavedFilters;
+      remainingAnonymousFilters: SavedFilters;
+    }
+  | {
+      status: "synced";
+      source: "supabase";
+      importedNames: string[];
+      overwrittenNames: string[];
+      renamedNames: Array<{ from: string; to: string }>;
+      skippedNames: string[];
+      savedFilters: SavedFilters;
+      remainingAnonymousFilters: SavedFilters;
+    }
+  | {
+      status: "conflicts";
+      source: "supabase";
+      importedNames: string[];
+      conflicts: SavedFiltersSyncConflict[];
+      savedFilters: SavedFilters;
+      remainingAnonymousFilters: SavedFilters;
     };
 
 type SavedFiltersTable = {
@@ -284,6 +331,133 @@ export async function listSavedFilterNames(
   };
 }
 
+export function readAnonymousSavedFilters(storage?: BrowserStorageLike): SavedFilters {
+  return readLocalSavedFilters(storage ?? getBrowserStorage());
+}
+
+export function listAnonymousSavedFilterNames(storage?: BrowserStorageLike): string[] {
+  return Object.keys(readAnonymousSavedFilters(storage));
+}
+
+export async function syncAnonymousSavedFilters({
+  conflictResolutions = [],
+  ...options
+}: SavedFiltersPersistenceOptions & {
+  conflictResolutions?: SavedFiltersSyncResolution[];
+} = {}): Promise<SyncAnonymousSavedFiltersResult> {
+  const storage = options.storage ?? getBrowserStorage();
+  const anonymousFilters = readLocalSavedFilters(storage);
+  const context = await resolveSavedFiltersContext(options);
+
+  if (context.source !== "supabase") {
+    return {
+      status: "pending",
+      source: "localStorage",
+      savedFilters: anonymousFilters,
+      remainingAnonymousFilters: anonymousFilters
+    };
+  }
+
+  let supabaseFilters = await readSupabaseSavedFilters(context.supabase, context.user.id);
+  let remainingAnonymousFilters = { ...anonymousFilters };
+  const resolutionByName = new Map(
+    conflictResolutions.map((resolution) => [
+      normalizeSavedFilterName(resolution.name),
+      resolution
+    ])
+  );
+  const importedNames: string[] = [];
+  const overwrittenNames: string[] = [];
+  const renamedNames: Array<{ from: string; to: string }> = [];
+  const skippedNames: string[] = [];
+  const conflicts: SavedFiltersSyncConflict[] = [];
+
+  for (const [name, record] of Object.entries(anonymousFilters)) {
+    const remoteRecord = supabaseFilters[name];
+
+    if (!remoteRecord) {
+      supabaseFilters = await writeSupabaseSavedFilter(
+        context.supabase,
+        context.user.id,
+        name,
+        record.filters
+      );
+      importedNames.push(name);
+      delete remainingAnonymousFilters[name];
+      continue;
+    }
+
+    const resolution = resolutionByName.get(name);
+
+    if (!resolution) {
+      conflicts.push({
+        name,
+        local: record,
+        supabase: remoteRecord
+      });
+      continue;
+    }
+
+    if (resolution.action === "keep_supabase") {
+      skippedNames.push(name);
+      delete remainingAnonymousFilters[name];
+      continue;
+    }
+
+    if (resolution.action === "overwrite_supabase") {
+      supabaseFilters = await writeSupabaseSavedFilter(
+        context.supabase,
+        context.user.id,
+        name,
+        record.filters
+      );
+      overwrittenNames.push(name);
+      delete remainingAnonymousFilters[name];
+      continue;
+    }
+
+    const renamedName = getAvailableSavedFilterName(
+      resolution.renameTo || `${name} local`,
+      supabaseFilters
+    );
+    supabaseFilters = await writeSupabaseSavedFilter(
+      context.supabase,
+      context.user.id,
+      renamedName,
+      record.filters
+    );
+    renamedNames.push({
+      from: name,
+      to: renamedName
+    });
+    delete remainingAnonymousFilters[name];
+  }
+
+  writeLocalSavedFilters(storage, remainingAnonymousFilters);
+
+  if (conflicts.length > 0) {
+    return {
+      status: "conflicts",
+      source: "supabase",
+      importedNames,
+      conflicts,
+      savedFilters: supabaseFilters,
+      remainingAnonymousFilters
+    };
+  }
+
+  return {
+    status: "synced",
+    source: "supabase",
+    importedNames,
+    overwrittenNames,
+    renamedNames,
+    skippedNames,
+    savedFilters: supabaseFilters,
+    remainingAnonymousFilters
+  };
+}
+
 function readLocalSavedFilters(storage = getBrowserStorage()): SavedFilters {
   if (!storage) {
     return {};
@@ -304,6 +478,14 @@ function readLocalSavedFilters(storage = getBrowserStorage()): SavedFilters {
     storage.setItem(SAVED_FILTERS_STORAGE_KEY, JSON.stringify({}));
     return {};
   }
+}
+
+function writeLocalSavedFilters(
+  storage: BrowserStorageLike | undefined,
+  savedFilters: SavedFilters
+): SavedFilters {
+  storage?.setItem(SAVED_FILTERS_STORAGE_KEY, JSON.stringify(savedFilters));
+  return savedFilters;
 }
 
 function writeLocalSavedFilter(
@@ -333,8 +515,7 @@ function deleteLocalSavedFilter(
 ): SavedFilters {
   const next = { ...savedFilters };
   delete next[normalizedName];
-  storage?.setItem(SAVED_FILTERS_STORAGE_KEY, JSON.stringify(next));
-  return next;
+  return writeLocalSavedFilters(storage, next);
 }
 
 async function readSupabaseSavedFilters(supabase: SupabaseLike, userId: string): Promise<SavedFilters> {
@@ -497,6 +678,25 @@ function normalizeSavedFilterRows(rows: SavedFilterRow[]): SavedFilters {
   }
 
   return normalized;
+}
+
+function getAvailableSavedFilterName(name: string, savedFilters: SavedFilters): string {
+  const fallbackName = "saved filter";
+  const baseName = normalizeSavedFilterName(name) || fallbackName;
+
+  if (!savedFilters[baseName]) {
+    return baseName;
+  }
+
+  for (let suffix = 2; suffix < 1000; suffix += 1) {
+    const candidate = `${baseName} ${suffix}`;
+
+    if (!savedFilters[candidate]) {
+      return candidate;
+    }
+  }
+
+  return `${baseName} ${Date.now()}`;
 }
 
 function getOptionalBrowserSupabaseClient(): SupabaseLike | undefined {

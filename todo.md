@@ -47,14 +47,14 @@
 
 ## 6. Saved Filters
 
-- [ ] Save anonymous filters to `localStorage` under `mfscreener.saved_filters`.
-- [ ] Save logged-in user filters to `public.saved_filters`.
-- [ ] List saved filters from the active source.
-- [ ] Load saved filters by normalized name.
-- [ ] Prompt before overwriting duplicate names.
-- [ ] Offer to sync anonymous saves after sign-in.
-- [ ] Resolve sync conflicts without silently overwriting Supabase data.
-- [ ] Add delete saved filter action in the dropdown.
+- [x] Save anonymous filters to `localStorage` under `mfscreener.saved_filters`.
+- [x] Save logged-in user filters to `public.saved_filters`.
+- [x] List saved filters from the active source.
+- [x] Load saved filters by normalized name.
+- [x] Prompt before overwriting duplicate names.
+- [x] Offer to sync anonymous saves after sign-in.
+- [x] Resolve sync conflicts without silently overwriting Supabase data.
+- [x] Add delete saved filter action in the dropdown.
 
 ## 7. UI
 

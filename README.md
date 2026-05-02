@@ -81,6 +81,12 @@ Supported filters mirror the chat tool state: category, AUM floor, expense-ratio
 
 SSE events are `text_delta`, `tool_call`, `done`, and `error`. Tool calls are emitted only after Anthropic finishes each streamed tool-use block, so the client never applies partial JSON.
 
+## Saved Filters
+
+Anonymous saved screens are stored in `localStorage` under `mfscreener.saved_filters`. When a Supabase session is active, the same dropdown reads and writes `public.saved_filters` through the anon client and RLS policies.
+
+If local anonymous saves exist after sign-in, the dropdown offers to sync them. Non-conflicting names can be imported, while matching normalized names require an explicit keep-cloud, overwrite-cloud, or rename-local choice.
+
 ## Supabase Setup
 
 Supabase is the only application database. The project will use:

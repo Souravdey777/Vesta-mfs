@@ -14,11 +14,15 @@ import {
   listSavedFilterNames,
   loadSavedFilter,
   saveSavedFilter,
+  syncAnonymousSavedFilters,
   type DeleteSavedFilterResult,
   type HydrateSavedFiltersResult,
   type LoadSavedFilterResult,
   type SaveSavedFilterResult,
-  type SavedFiltersPersistenceOptions
+  type SavedFiltersPersistenceOptions,
+  type SavedFiltersSyncConflict,
+  type SavedFiltersSyncResolution,
+  type SyncAnonymousSavedFiltersResult
 } from "@/lib/saved-filters";
 import type {
   ApplyFiltersInput,
@@ -26,7 +30,8 @@ import type {
   FilterState,
   SavedFilters,
   SavedFiltersSource,
-  SavedFiltersStatus
+  SavedFiltersStatus,
+  SavedFiltersSyncStatus
 } from "@/lib/types";
 
 export type FiltersStore = {
@@ -35,6 +40,9 @@ export type FiltersStore = {
   savedFiltersStatus: SavedFiltersStatus;
   savedFiltersSource: SavedFiltersSource;
   savedFiltersError: string | null;
+  savedFiltersSyncStatus: SavedFiltersSyncStatus;
+  savedFiltersSyncConflicts: SavedFiltersSyncConflict[];
+  savedFiltersSyncError: string | null;
   applyFilters: (input: ApplyFiltersInput) => void;
   clearFilters: () => void;
   removeFilter: (key: FilterKey) => void;
@@ -53,6 +61,11 @@ export type FiltersStore = {
     options?: SavedFiltersPersistenceOptions
   ) => Promise<DeleteSavedFilterResult>;
   listSavedFilterNames: (options?: SavedFiltersPersistenceOptions) => Promise<string[]>;
+  syncAnonymousSavedFilters: (
+    options?: SavedFiltersPersistenceOptions & {
+      conflictResolutions?: SavedFiltersSyncResolution[];
+    }
+  ) => Promise<SyncAnonymousSavedFiltersResult>;
 };
 
 const initialState = {
@@ -60,7 +73,10 @@ const initialState = {
   savedFilters: {},
   savedFiltersStatus: "idle" as const,
   savedFiltersSource: "localStorage" as const,
-  savedFiltersError: null
+  savedFiltersError: null,
+  savedFiltersSyncStatus: "idle" as const,
+  savedFiltersSyncConflicts: [],
+  savedFiltersSyncError: null
 };
 
 export const useFiltersStore = create<FiltersStore>((set, get) => ({
@@ -167,6 +183,37 @@ export const useFiltersStore = create<FiltersStore>((set, get) => ({
     });
 
     return result.names;
+  },
+  syncAnonymousSavedFilters: async (options) => {
+    set({
+      savedFiltersSyncStatus: "pending",
+      savedFiltersSyncError: null
+    });
+
+    try {
+      const result = await syncAnonymousSavedFilters(options);
+
+      set({
+        savedFilters: result.savedFilters,
+        savedFiltersSource: result.source,
+        savedFiltersStatus: "ready",
+        savedFiltersError: null,
+        savedFiltersSyncStatus: result.status,
+        savedFiltersSyncConflicts: result.status === "conflicts" ? result.conflicts : [],
+        savedFiltersSyncError: null
+      });
+
+      return result;
+    } catch (error) {
+      const message = getErrorMessage(error);
+
+      set({
+        savedFiltersSyncStatus: "error",
+        savedFiltersSyncError: message
+      });
+
+      throw error;
+    }
   }
 }));
 

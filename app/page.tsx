@@ -1,5 +1,6 @@
 import { ArrowRight, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 
+import { SavedFiltersDropdown } from "@/components/saved-filters-dropdown";
 import { Button } from "@/components/ui/button";
 
 const starterPrompts = [
@@ -68,9 +69,7 @@ export default function Home() {
                 <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
                 Results
               </div>
-              <Button size="sm" variant="secondary">
-                Save view
-              </Button>
+              <SavedFiltersDropdown />
             </div>
 
             <div className="grid gap-3 p-4 sm:grid-cols-2">

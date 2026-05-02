@@ -185,3 +185,4 @@ export type ChatSseEvent =
 
 export type SavedFiltersStatus = "idle" | "loading" | "ready" | "error";
 export type SavedFiltersSource = "localStorage" | "supabase";
+export type SavedFiltersSyncStatus = "idle" | "pending" | "synced" | "conflicts" | "error";
