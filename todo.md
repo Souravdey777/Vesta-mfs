@@ -20,12 +20,12 @@
 
 ## 3. Core Types And State
 
-- [ ] Define `FilterState`, fund row, tool-call, and saved-filter types.
-- [ ] Implement single Zustand store in `lib/store/filters.ts`.
-- [ ] Support additive filter updates.
-- [ ] Support `replace: true`.
-- [ ] Support chip removal and clear-all behavior.
-- [ ] Support saved-filter hydration for anonymous and logged-in users.
+- [x] Define `FilterState`, fund row, tool-call, and saved-filter types.
+- [x] Implement single Zustand store in `lib/store/filters.ts`.
+- [x] Support additive filter updates.
+- [x] Support `replace: true`.
+- [x] Support chip removal and clear-all behavior.
+- [x] Support saved-filter hydration for anonymous and logged-in users.
 
 ## 4. Fund Query API
 
@@ -79,11 +79,11 @@
 
 ## 9. Tests
 
-- [ ] Unit test filter reducer for every tool shape.
-- [ ] Cover additive filters, `replace: true`, and conflicting sorts.
+- [x] Unit test filter reducer for every tool shape.
+- [x] Cover additive filters, `replace: true`, and conflicting sorts.
 - [ ] Unit test Supabase query builder output or RPC params.
-- [ ] Unit test saved filters for anonymous localStorage flow.
-- [ ] Unit test saved filters for logged-in Supabase flow with mocked client.
+- [x] Unit test saved filters for anonymous localStorage flow.
+- [x] Unit test saved filters for logged-in Supabase flow with mocked client.
 - [ ] Add RLS smoke test or documented SQL verification for `public.saved_filters`.
 - [ ] Add seed dry-run test to prevent duplicate fund rows.
 - [ ] Add Playwright happy path for large-cap funds with 3-year returns over 15%.
