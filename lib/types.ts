@@ -149,5 +149,39 @@ export type ToolInputMap = {
   list_saved_filters: ListSavedFiltersInput;
 };
 
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ChatRequest = {
+  messages: ChatMessage[];
+};
+
+export type ChatToolCall = {
+  [Name in ToolName]: {
+    id: string;
+    name: Name;
+    input: ToolInputMap[Name];
+  };
+}[ToolName];
+
+export type ChatSseEvent =
+  | {
+      type: "text_delta";
+      text: string;
+    }
+  | {
+      type: "tool_call";
+      toolCall: ChatToolCall;
+    }
+  | {
+      type: "done";
+    }
+  | {
+      type: "error";
+      error: string;
+    };
+
 export type SavedFiltersStatus = "idle" | "loading" | "ready" | "error";
 export type SavedFiltersSource = "localStorage" | "supabase";

@@ -41,6 +41,7 @@ Open http://localhost:3000.
 
 ```bash
 ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -50,6 +51,7 @@ AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
 
 `SUPABASE_SERVICE_ROLE_KEY` is server-only and should be used only for seed/admin scripts.
 `CRON_SECRET` protects the Vercel Cron refresh route.
+`ANTHROPIC_MODEL` is optional; the chat route defaults to Claude Sonnet 4 if it is omitted.
 
 ## Scripts
 
@@ -72,6 +74,12 @@ AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
 ```
 
 Supported filters mirror the chat tool state: category, AUM floor, expense-ratio cap, return floors, rating floor, fund house, plan type, sort field, and order. Invalid query params return `400` with sanitized validation issues. Empty result sets return zero-state metadata with suggested filters to relax.
+
+## Chat API
+
+`POST /api/chat` streams provider-neutral server-sent events. The server proposes text and complete tool calls; the browser applies those tool calls to the single Zustand filter store and then refreshes fund results.
+
+SSE events are `text_delta`, `tool_call`, `done`, and `error`. Tool calls are emitted only after Anthropic finishes each streamed tool-use block, so the client never applies partial JSON.
 
 ## Supabase Setup
 

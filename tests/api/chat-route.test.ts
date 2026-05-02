@@ -1,0 +1,233 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { POST } from "@/app/api/chat/route";
+import { getChatResponse, writeChatSseStream, type RawChatStreamEvent } from "@/lib/server/chat-route";
+import type { ChatSseEvent } from "@/lib/types";
+
+const ORIGINAL_ENV = process.env;
+
+describe("chat route", () => {
+  beforeEach(() => {
+    process.env = {
+      ...ORIGINAL_ENV
+    };
+  });
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
+  it("returns 400 for invalid requests", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ messages: [] })
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      ok: false,
+      error: "Invalid chat request."
+    });
+  });
+
+  it("returns sanitized 500 when Anthropic config is missing", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await POST(validChatRequest("show me large cap funds"));
+    const body = await response.json();
+
+    consoleSpy.mockRestore();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      ok: false,
+      error: "Unable to start chat right now."
+    });
+  });
+
+  it("streams text deltas and complete tool calls without exposing Anthropic event names", async () => {
+    const response = await getChatResponse(validChatRequest("large cap funds"), {
+      createStream: async () =>
+        mockAnthropicStream([
+          textDelta("I filtered for large-cap funds."),
+          toolStart(1, "toolu_apply", "apply_filters"),
+          toolJsonDelta(1, '{"category":"Large Cap",'),
+          toolJsonDelta(1, '"sort_by":"returns_3y"}'),
+          toolStop(1)
+        ]),
+      logger: silentLogger
+    });
+    const body = await response.text();
+    const events = parseSseEvents(body);
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([
+      {
+        type: "text_delta",
+        text: "I filtered for large-cap funds."
+      },
+      {
+        type: "tool_call",
+        toolCall: {
+          id: "toolu_apply",
+          name: "apply_filters",
+          input: {
+            category: "Large Cap",
+            sort_by: "returns_3y"
+          }
+        }
+      },
+      {
+        type: "done"
+      }
+    ]);
+    expect(body).not.toContain("content_block_delta");
+    expect(body).not.toContain("input_json_delta");
+  });
+
+  it("emits sanitized errors for invalid streamed tool calls", async () => {
+    const emitted: ChatSseEvent[] = [];
+
+    await writeChatSseStream(
+      mockAnthropicStream([
+        toolStart(0, "toolu_bad", "apply_filters"),
+        toolJsonDelta(0, '{"category":"Liquid"}'),
+        toolStop(0)
+      ]),
+      {
+        enqueue: (event) => emitted.push(event),
+        logger: silentLogger
+      }
+    );
+
+    expect(emitted).toEqual([
+      {
+        type: "error",
+        error: "Invalid tool input."
+      },
+      {
+        type: "done"
+      }
+    ]);
+  });
+
+  it("keeps recommendation responses as filters rather than scheme-name text", async () => {
+    const response = await getChatResponse(
+      validChatRequest("what is the best HDFC fund right now"),
+      {
+        createStream: async () =>
+          mockAnthropicStream([
+            textDelta("I filtered for HDFC funds with stronger 3-year returns."),
+            toolStart(2, "toolu_hdfc", "apply_filters"),
+            toolJsonDelta(2, '{"fund_house":"HDFC","sort_by":"returns_3y","order":"desc"}'),
+            toolStop(2)
+          ]),
+        logger: silentLogger
+      }
+    );
+    const body = await response.text();
+    const events = parseSseEvents(body);
+
+    expect(events).toContainEqual({
+      type: "tool_call",
+      toolCall: {
+        id: "toolu_hdfc",
+        name: "apply_filters",
+        input: {
+          fund_house: "HDFC",
+          sort_by: "returns_3y",
+          order: "desc"
+        }
+      }
+    });
+    expect(body).not.toContain("HDFC Top 100 Fund");
+    expect(body).not.toContain("HDFC Flexi Cap Fund");
+  });
+});
+
+function validChatRequest(content: string) {
+  return new Request("http://localhost/api/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      messages: [
+        {
+          role: "user",
+          content
+        }
+      ]
+    })
+  });
+}
+
+async function* mockAnthropicStream(events: RawChatStreamEvent[]) {
+  for (const event of events) {
+    yield event;
+  }
+}
+
+function textDelta(text: string) {
+  return {
+    type: "content_block_delta",
+    index: 0,
+    delta: {
+      type: "text_delta",
+      text
+    }
+  };
+}
+
+function toolStart(index: number, id: string, name: string) {
+  return {
+    type: "content_block_start",
+    index,
+    content_block: {
+      id,
+      name,
+      input: {},
+      type: "tool_use"
+    }
+  };
+}
+
+function toolJsonDelta(index: number, partial_json: string) {
+  return {
+    type: "content_block_delta",
+    index,
+    delta: {
+      partial_json,
+      type: "input_json_delta"
+    }
+  };
+}
+
+function toolStop(index: number) {
+  return {
+    type: "content_block_stop",
+    index
+  };
+}
+
+function parseSseEvents(text: string): ChatSseEvent[] {
+  return text
+    .trim()
+    .split("\n\n")
+    .map((chunk) => {
+      const dataLine = chunk
+        .split("\n")
+        .find((line) => line.startsWith("data: "));
+
+      if (!dataLine) {
+        throw new Error(`Missing data line in ${chunk}`);
+      }
+
+      return JSON.parse(dataLine.slice("data: ".length)) as ChatSseEvent;
+    });
+}
+
+const silentLogger = {
+  error: () => undefined
+};

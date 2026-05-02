@@ -38,12 +38,12 @@
 
 ## 5. Chat And Tool Calling
 
-- [ ] Add canonical system prompt in `lib/prompts.ts`.
-- [ ] Implement `/api/chat` with Anthropic Sonnet.
-- [ ] Define tools: `apply_filters`, `clear_filters`, `explain_metric`, `save_filter`, `load_saved_filter`, `list_saved_filters`.
-- [ ] Accumulate streamed tool-use blocks before applying tool results.
-- [ ] Prevent free-text fund recommendations from the assistant.
-- [ ] Add metric explanations through `explain_metric`.
+- [x] Add canonical system prompt in `lib/prompts.ts`.
+- [x] Implement `/api/chat` with Anthropic Sonnet.
+- [x] Define tools: `apply_filters`, `clear_filters`, `explain_metric`, `save_filter`, `load_saved_filter`, `list_saved_filters`.
+- [x] Accumulate streamed tool-use blocks before applying tool results.
+- [x] Prevent free-text fund recommendations from the assistant.
+- [x] Add metric explanations through `explain_metric`.
 
 ## 6. Saved Filters
 
@@ -87,7 +87,7 @@
 - [ ] Add RLS smoke test or documented SQL verification for `public.saved_filters`.
 - [ ] Add seed dry-run test to prevent duplicate fund rows.
 - [ ] Add Playwright happy path for large-cap funds with 3-year returns over 15%.
-- [ ] Add prompt-safety test for "best HDFC fund right now".
+- [x] Add prompt-safety test for "best HDFC fund right now".
 
 ## 10. Deployment
 
