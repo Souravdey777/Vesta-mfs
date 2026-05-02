@@ -1,0 +1,35 @@
+Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Net Asset Value;Date
+
+Open Ended Schemes ( Equity Scheme - Large Cap Fund )
+HDFC Mutual Fund
+125497;INF179K01BB2;;HDFC Top 100 Fund - Direct Plan - Growth;942.4560;02-May-2026
+125498;INF179K01BC0;;HDFC Top 100 Fund - Regular Plan - Growth;901.2140;02-May-2026
+120503;INF846K01DP8;;Axis Bluechip Fund - Direct Plan - Growth;67.8123;02-May-2026
+
+Open Ended Schemes ( Equity Scheme - Mid Cap Fund )
+Kotak Mahindra Mutual Fund
+118989;INF174K01LS2;;Kotak Emerging Equity Fund - Direct Plan - Growth;147.3892;02-May-2026
+
+Open Ended Schemes ( Equity Scheme - Small Cap Fund )
+Nippon India Mutual Fund
+120465;INF204K01K15;;Nippon India Small Cap Fund - Direct Plan - Growth;182.1184;02-May-2026
+
+Open Ended Schemes ( Equity Scheme - Flexi Cap Fund )
+Parag Parikh Mutual Fund
+122639;INF879O01027;;Parag Parikh Flexi Cap Fund - Direct Plan - Growth;91.6831;02-May-2026
+
+Open Ended Schemes ( Equity Scheme - ELSS )
+Mirae Asset Mutual Fund
+135781;INF769K01DM9;;Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth;54.3377;02-May-2026
+
+Open Ended Schemes ( Hybrid Scheme - Aggressive Hybrid Fund )
+ICICI Prudential Mutual Fund
+120710;INF109K01VQ1;;ICICI Prudential Equity & Debt Fund - Direct Plan - Growth;401.5522;02-May-2026
+
+Open Ended Schemes ( Debt Scheme - Corporate Bond Fund )
+Aditya Birla Sun Life Mutual Fund
+119551;INF209K01UN8;;Aditya Birla Sun Life Corporate Bond Fund - Direct Plan - Growth;112.9045;02-May-2026
+
+Open Ended Schemes ( Other Scheme - Index Funds )
+UTI Mutual Fund
+120716;INF789F01XA0;;UTI Nifty 50 Index Fund - Direct Plan - Growth;168.4430;02-May-2026

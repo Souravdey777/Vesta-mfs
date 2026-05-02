@@ -10,13 +10,13 @@
 
 ## 2. Supabase Data Layer
 
-- [ ] Create Supabase project.
-- [ ] Add `public.funds` migration.
-- [ ] Add `public.saved_filters` migration with RLS policies.
-- [ ] Configure Supabase Auth email OTP or magic-link flow.
-- [ ] Add seed input files for AMFI NAV data and enriched fund metrics.
-- [ ] Implement idempotent `npm run seed` to upsert fund rows.
-- [ ] Document local and production Supabase setup in README.
+- [x] Create Supabase project.
+- [x] Add `public.funds` migration.
+- [x] Add `public.saved_filters` migration with RLS policies.
+- [x] Configure Supabase Auth email OTP or magic-link flow.
+- [x] Add seed input files for AMFI NAV data and enriched fund metrics.
+- [x] Implement idempotent `npm run seed` to upsert fund rows.
+- [x] Document local and production Supabase setup in README.
 
 ## 3. Core Types And State
 

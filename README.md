@@ -44,9 +44,12 @@ ANTHROPIC_API_KEY=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+CRON_SECRET=
+AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` is server-only and should be used only for seed/admin scripts.
+`CRON_SECRET` protects the Vercel Cron refresh route.
 
 ## Scripts
 
@@ -57,7 +60,9 @@ SUPABASE_SERVICE_ROLE_KEY=
 - `npm run typecheck` runs TypeScript without emitting files.
 - `npm run test` runs unit tests with Vitest.
 - `npm run test:e2e` runs Playwright tests.
-- `npm run seed` will seed Supabase once the data layer is implemented.
+- `npm run seed:dry-run` validates the sample AMFI NAV fixture and enrichment join without writing.
+- `npm run seed` fetches AMFI NAV data and upserts rows into Supabase.
+
 
 ## Supabase Setup
 
@@ -68,7 +73,91 @@ Supabase is the only application database. The project will use:
 - Supabase Auth for lightweight email OTP or magic-link sign-in.
 - `localStorage` as the anonymous saved-filter fallback.
 
-Migrations and seed data are implemented in the next project phase.
+### 1. Create the hosted project
+
+Create a new Supabase project from the Supabase dashboard. Copy the project URL, anon key, and service-role key into `.env.local`.
+
+### 2. Apply migrations
+
+Open the Supabase SQL Editor and run the SQL in:
+
+```bash
+supabase/migrations/001_create_funds_and_saved_filters.sql
+```
+
+The migration creates:
+
+- `public.funds`, with public read-only access for fund data.
+- `public.saved_filters`, with RLS policies so users can only access their own saved filters.
+- `public.set_updated_at()`, used to maintain `saved_filters.updated_at`.
+
+If you prefer the Supabase CLI, apply the same migration through your linked project after installing and configuring the CLI.
+
+For a direct Postgres connection, you can also run:
+
+```bash
+SUPABASE_DB_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres" npm run db:migrate
+```
+
+Do not commit the database URL. It contains the database password.
+
+### 3. Configure Auth
+
+In Supabase Auth settings:
+
+- Enable email OTP or magic-link sign-in.
+- Add `http://localhost:3000/auth/callback` to redirect URLs.
+- Add `https://<your-vercel-domain>/auth/callback` after deployment.
+
+No profiles, KYC, brokerage identity, or full account management is required. Auth exists only to sync saved filters for logged-in users.
+
+### 4. Seed fund data
+
+Validate the parser and demo enrichment join locally:
+
+```bash
+npm run seed:dry-run
+```
+
+Upsert fund rows into Supabase:
+
+```bash
+npm run seed
+```
+
+By default, dry-run uses `data/amfi-nav.sample.txt` so it works offline. The real seed command fetches the AMFI bulk NAV file, merges `data/enriched-funds.seed.json`, and upserts by `scheme_code`.
+
+### 5. Configure Vercel Cron
+
+`vercel.json` schedules the protected refresh route:
+
+```json
+{
+  "path": "/api/cron/refresh-funds",
+  "schedule": "0 20 * * *"
+}
+```
+
+Vercel cron expressions run in UTC. This schedule runs daily at 20:00 UTC, which is 1:30 AM IST the next day, giving a buffer after daily NAV publication.
+
+Set these environment variables in Vercel:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+CRON_SECRET=
+AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
+```
+
+For local route testing, call:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  "http://localhost:3000/api/cron/refresh-funds?dryRun=1&source=sample"
+```
+
+The app reads from Supabase only. External NAV data is used by seed and cron ingestion, not during normal user traffic.
 
 ## What I Deliberately Left Out
 
