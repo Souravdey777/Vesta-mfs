@@ -1,4 +1,4 @@
-# MF Screener Todo
+# MF Screener AI Todo
 
 ## 1. Project Setup
 
@@ -58,15 +58,15 @@
 
 ## 7. UI
 
-- [ ] Build split-pane desktop layout with chat left and table right.
-- [ ] Build mobile chat-first layout with results view toggle.
-- [ ] Add starter prompts for empty chat.
-- [ ] Add streaming and tool-call status states.
-- [ ] Add filter chips above table.
-- [ ] Add saved filters dropdown and sign-in CTA.
-- [ ] Build fund table with expandable rows.
-- [ ] Add returns chart placeholder and exit-load details.
-- [ ] Add thoughtful empty state with suggested filter relaxation.
+- [x] Build split-pane desktop layout with chat left and table right.
+- [x] Build mobile chat-first layout with results view toggle.
+- [x] Add starter prompts for empty chat.
+- [x] Add streaming and tool-call status states.
+- [x] Add filter chips above table.
+- [x] Add saved filters dropdown and sign-in CTA.
+- [x] Build fund table with expandable rows.
+- [x] Add returns chart placeholder and exit-load details.
+- [x] Add thoughtful empty state with suggested filter relaxation.
 
 ## 8. Formatting And UX Polish
 
@@ -86,7 +86,7 @@
 - [x] Unit test saved filters for logged-in Supabase flow with mocked client.
 - [ ] Add RLS smoke test or documented SQL verification for `public.saved_filters`.
 - [ ] Add seed dry-run test to prevent duplicate fund rows.
-- [ ] Add Playwright happy path for large-cap funds with 3-year returns over 15%.
+- [x] Add Playwright happy path for large-cap funds with 3-year returns over 15%.
 - [x] Add prompt-safety test for "best HDFC fund right now".
 
 ## 10. Deployment

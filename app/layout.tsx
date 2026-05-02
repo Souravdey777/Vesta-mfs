@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MF Screener",
+  title: "MF Screener AI",
   description: "Conversational mutual fund screening for Indian investors."
 };
 

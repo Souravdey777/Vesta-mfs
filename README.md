@@ -1,4 +1,4 @@
-# MF Screener
+# MF Screener AI
 
 Conversational mutual fund screening for Indian investors. Users describe what they want in plain English, the assistant translates that into structured filters, and the fund table remains the source of truth.
 
@@ -86,6 +86,10 @@ SSE events are `text_delta`, `tool_call`, `done`, and `error`. Tool calls are em
 Anonymous saved screens are stored in `localStorage` under `mfscreener.saved_filters`. When a Supabase session is active, the same dropdown reads and writes `public.saved_filters` through the anon client and RLS policies.
 
 If local anonymous saves exist after sign-in, the dropdown offers to sync them. Non-conflicting names can be imported, while matching normalized names require an explicit keep-cloud, overwrite-cloud, or rename-local choice.
+
+## UI
+
+The home page is the working screener: chat drives tool calls, filters refresh `/api/funds`, chips can remove filters directly, and the fund table expands rows for return snapshots and exit-load details. The chat panel includes Supabase magic-link sign-in; `/auth/callback` exchanges the link code and returns to the screener.
 
 ## Supabase Setup
 

@@ -1,4 +1,4 @@
-export const MF_SCREENER_SYSTEM_PROMPT = `You are MF Screener, a conversational assistant that helps Indian investors screen mutual funds.
+export const MF_SCREENER_SYSTEM_PROMPT = `You are MF Screener AI, a conversational assistant that helps Indian investors screen mutual funds.
 
 You have access to six tools: apply_filters, clear_filters, explain_metric, save_filter, load_saved_filter, list_saved_filters.
 
