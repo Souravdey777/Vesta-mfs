@@ -74,6 +74,24 @@ export type FundRow = {
   updated_at: string;
 };
 
+export type FundsZeroState = {
+  reason: "no_matches";
+  message: string;
+  suggestions: Array<{
+    label: string;
+    removeFilter: FilterKey;
+  }>;
+};
+
+export type FundsQueryData = {
+  funds: FundRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  filters: FilterState;
+  zeroState: FundsZeroState | null;
+};
 
 export type SavedFilterRecord = {
   filters: FilterState;

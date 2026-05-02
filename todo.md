@@ -29,12 +29,12 @@
 
 ## 4. Fund Query API
 
-- [ ] Build filter validation for `/api/funds`.
-- [ ] Implement Supabase fund query builder in `lib/server/funds-query.ts`.
-- [ ] Add filters for category, AUM, expense ratio, returns, rating, fund house, and plan type.
-- [ ] Add sorting for returns, AUM, expense ratio, and rating.
-- [ ] Return zero-state metadata when no funds match.
-- [ ] Format errors without exposing Supabase internals.
+- [x] Build filter validation for `/api/funds`.
+- [x] Implement Supabase fund query builder in `lib/server/funds-query.ts`.
+- [x] Add filters for category, AUM, expense ratio, returns, rating, fund house, and plan type.
+- [x] Add sorting for returns, AUM, expense ratio, and rating.
+- [x] Return zero-state metadata when no funds match.
+- [x] Format errors without exposing Supabase internals.
 
 ## 5. Chat And Tool Calling
 
@@ -81,7 +81,7 @@
 
 - [x] Unit test filter reducer for every tool shape.
 - [x] Cover additive filters, `replace: true`, and conflicting sorts.
-- [ ] Unit test Supabase query builder output or RPC params.
+- [x] Unit test Supabase query builder output or RPC params.
 - [x] Unit test saved filters for anonymous localStorage flow.
 - [x] Unit test saved filters for logged-in Supabase flow with mocked client.
 - [ ] Add RLS smoke test or documented SQL verification for `public.saved_filters`.

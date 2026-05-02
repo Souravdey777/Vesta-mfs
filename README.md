@@ -63,6 +63,15 @@ AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
 - `npm run seed:dry-run` validates the sample AMFI NAV fixture and enrichment join without writing.
 - `npm run seed` fetches AMFI NAV data and upserts rows into Supabase.
 
+## Fund Query API
+
+`GET /api/funds` reads from Supabase and returns paged fund rows with the active normalized filters:
+
+```bash
+/api/funds?category=Large%20Cap&min_returns_3y=15&page=1&pageSize=25
+```
+
+Supported filters mirror the chat tool state: category, AUM floor, expense-ratio cap, return floors, rating floor, fund house, plan type, sort field, and order. Invalid query params return `400` with sanitized validation issues. Empty result sets return zero-state metadata with suggested filters to relax.
 
 ## Supabase Setup
 
