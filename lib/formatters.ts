@@ -1,14 +1,32 @@
-export function formatCurrency(value: number | null | undefined): string {
+type NumberFormatOptions = {
+  maximumFractionDigits?: number;
+  minimumFractionDigits?: number;
+};
+
+type CurrencyFormatOptions = {
+  fractionDigits?: number;
+};
+
+const INR_SYMBOL = "₹";
+
+export function formatCurrency(
+  value: number | null | undefined,
+  { fractionDigits = 2 }: CurrencyFormatOptions = {}
+): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return "-";
   }
 
-  return new Intl.NumberFormat("en-IN", {
-    currency: "INR",
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-    style: "currency"
-  }).format(value);
+  return `${INR_SYMBOL}${formatIndianNumber(value, {
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits
+  })}`;
+}
+
+export function formatWholeCurrency(value: number | null | undefined): string {
+  return formatCurrency(value, {
+    fractionDigits: 0
+  });
 }
 
 export function formatCrores(value: number | null | undefined): string {
@@ -16,9 +34,15 @@ export function formatCrores(value: number | null | undefined): string {
     return "-";
   }
 
-  return `${new Intl.NumberFormat("en-IN", {
-    maximumFractionDigits: 0
-  }).format(value)} Cr`;
+  return `${formatCurrency(value)} Cr`;
+}
+
+export function formatLakhs(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return `${formatCurrency(value)} Lakh`;
 }
 
 export function formatPercent(value: number | null | undefined): string {
@@ -26,10 +50,21 @@ export function formatPercent(value: number | null | undefined): string {
     return "-";
   }
 
-  return `${new Intl.NumberFormat("en-IN", {
+  return `${formatIndianNumber(value, {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2
-  }).format(value)}%`;
+  })}%`;
+}
+
+export function formatDecimal(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return formatIndianNumber(value, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2
+  });
 }
 
 export function formatNumber(value: number | null | undefined): string {
@@ -37,9 +72,9 @@ export function formatNumber(value: number | null | undefined): string {
     return "-";
   }
 
-  return new Intl.NumberFormat("en-IN", {
+  return formatIndianNumber(value, {
     maximumFractionDigits: 0
-  }).format(value);
+  });
 }
 
 export function formatDate(value: string | null | undefined): string {
@@ -58,4 +93,8 @@ export function formatDate(value: string | null | undefined): string {
     month: "short",
     year: "numeric"
   }).format(date);
+}
+
+function formatIndianNumber(value: number, options: NumberFormatOptions = {}): string {
+  return new Intl.NumberFormat("en-IN", options).format(value);
 }

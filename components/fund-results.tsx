@@ -1,12 +1,13 @@
 "use client";
 
-import { AlertCircle, BarChart3, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, BarChart3, RefreshCw, SearchX, SlidersHorizontal } from "lucide-react";
 
 import { FilterChips } from "@/components/filter-chips";
 import { FundTable } from "@/components/fund-table";
 import { SavedFiltersDropdown } from "@/components/saved-filters-dropdown";
 import { Button } from "@/components/ui/button";
 import type { UseFundsResult } from "@/hooks/use-funds";
+import { formatNumber } from "@/lib/formatters";
 import { useFiltersStore } from "@/lib/store/filters";
 
 type FundResultsProps = {
@@ -29,7 +30,7 @@ export function FundResults({ fundsResult, showSavedFilters = true }: FundResult
           Results
           {fundsResult.data ? (
             <span className="rounded-sm bg-muted px-2 py-0.5 text-xs">
-              {fundsResult.data.total} funds
+              {formatNumber(fundsResult.data.total)} funds
             </span>
           ) : null}
         </div>
@@ -57,9 +58,23 @@ export function FundResults({ fundsResult, showSavedFilters = true }: FundResult
 
     if (fundsResult.status === "loading") {
       return (
-        <div className="grid gap-2" aria-label="Loading funds">
+        <div
+          className="grid min-h-[420px] content-start gap-2"
+          aria-label="Loading funds"
+          aria-live="polite"
+          role="status"
+        >
           {Array.from({ length: 8 }).map((_, index) => (
-            <div className="h-12 rounded-md bg-muted" key={index} />
+            <div
+              className="grid h-12 animate-pulse grid-cols-[minmax(0,1.8fr)_repeat(2,minmax(0,1fr))] items-center gap-3 rounded-md border border-border bg-background px-3 sm:grid-cols-[minmax(12rem,1.8fr)_repeat(4,minmax(5rem,1fr))]"
+              key={index}
+            >
+              <span className="h-4 rounded-sm bg-muted" />
+              <span className="h-4 rounded-sm bg-muted" />
+              <span className="h-4 rounded-sm bg-muted" />
+              <span className="hidden h-4 rounded-sm bg-muted sm:block" />
+              <span className="hidden h-4 rounded-sm bg-muted sm:block" />
+            </div>
           ))}
         </div>
       );
@@ -67,7 +82,11 @@ export function FundResults({ fundsResult, showSavedFilters = true }: FundResult
 
     if (fundsResult.status === "error") {
       return (
-        <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-md border border-border p-6 text-center">
+        <div
+          className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-md border border-border p-6 text-center"
+          aria-live="assertive"
+          role="alert"
+        >
           <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">
             {fundsResult.error ?? "Unable to load funds right now."}
@@ -83,28 +102,38 @@ export function FundResults({ fundsResult, showSavedFilters = true }: FundResult
     if (fundsResult.data?.zeroState) {
       return (
         <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-md border border-border p-6 text-center">
+          <SearchX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
           <p className="max-w-md text-sm text-muted-foreground">
             {fundsResult.data.zeroState.message}
           </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {fundsResult.data.zeroState.suggestions.map((suggestion) => (
-              <Button
-                key={suggestion.removeFilter}
-                variant="outline"
-                onClick={() => removeFilter(suggestion.removeFilter)}
-              >
-                {suggestion.label}
-              </Button>
-            ))}
-          </div>
+          {fundsResult.data.zeroState.suggestions.length > 0 ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              {fundsResult.data.zeroState.suggestions.map((suggestion) => (
+                <Button
+                  key={suggestion.removeFilter}
+                  variant="outline"
+                  onClick={() => removeFilter(suggestion.removeFilter)}
+                >
+                  {suggestion.label}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <p className="max-w-md text-sm text-muted-foreground">
+              Try removing a filter or starting with a broader category.
+            </p>
+          )}
         </div>
       );
     }
 
     if (!fundsResult.data || fundsResult.data.funds.length === 0) {
       return (
-        <div className="flex min-h-[360px] items-center justify-center rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
-          No funds to show yet.
+        <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-md border border-border p-6 text-center">
+          <SearchX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+          <p className="max-w-md text-sm text-muted-foreground">
+            No funds matched this screen. Try clearing a filter or using a broader category.
+          </p>
         </div>
       );
     }

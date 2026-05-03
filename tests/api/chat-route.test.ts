@@ -68,7 +68,7 @@ describe("chat route", () => {
     expect(events).toEqual([
       {
         type: "text_delta",
-        text: "I filtered for large-cap funds."
+        text: "I filtered for large-cap funds. Check the results table for fund names and metrics."
       },
       {
         type: "tool_call",
@@ -147,6 +147,33 @@ describe("chat route", () => {
     expect(body).not.toContain("HDFC Top 100 Fund");
     expect(body).not.toContain("HDFC Flexi Cap Fund");
   });
+
+  it("replaces unsafe assistant text before sending SSE events", async () => {
+    const response = await getChatResponse(validChatRequest("best hdfc fund"), {
+      createStream: async () =>
+        mockAnthropicStream([
+          textStart(0),
+          textDeltaAt(0, "You should invest in HDFC Top 100 Fund."),
+          textDeltaAt(0, " It can help you claim an 80C deduction."),
+          textStop(0)
+        ]),
+      logger: silentLogger
+    });
+    const body = await response.text();
+    const events = parseSseEvents(body);
+
+    expect(events).toEqual([
+      {
+        type: "text_delta",
+        text: "I can screen funds, but I cannot give investment or tax advice. Use the results table as your source of truth."
+      },
+      {
+        type: "done"
+      }
+    ]);
+    expect(body).not.toContain("HDFC Top 100 Fund");
+    expect(body).not.toContain("80C");
+  });
 });
 
 function validChatRequest(content: string) {
@@ -177,6 +204,35 @@ function textDelta(text: string) {
       type: "text_delta",
       text
     }
+  };
+}
+
+function textStart(index: number, text = "") {
+  return {
+    type: "content_block_start",
+    index,
+    content_block: {
+      text,
+      type: "text"
+    }
+  };
+}
+
+function textDeltaAt(index: number, text: string) {
+  return {
+    type: "content_block_delta",
+    index,
+    delta: {
+      type: "text_delta",
+      text
+    }
+  };
+}
+
+function textStop(index: number) {
+  return {
+    type: "content_block_stop",
+    index
   };
 }
 

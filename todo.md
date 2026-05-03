@@ -82,12 +82,12 @@
 
 ## 9. Formatting And UX Polish
 
-- [ ] Format Indian currency, crores, lakhs, and percentages consistently.
-- [ ] Keep chat responses to two to four sentences.
-- [ ] Avoid investment or tax advice.
-- [ ] Ensure no fund names are generated from model memory.
-- [ ] Add loading, error, and zero-result states.
-- [ ] Verify responsive layout for desktop and mobile.
+- [x] Format Indian currency, crores, lakhs, and percentages consistently.
+- [x] Keep chat responses to two to four sentences.
+- [x] Avoid investment or tax advice.
+- [x] Ensure no fund names are generated from model memory.
+- [x] Add loading, error, and zero-result states.
+- [x] Verify responsive layout for desktop and mobile.
 
 ## 10. Tests
 

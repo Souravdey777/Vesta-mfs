@@ -7,6 +7,7 @@ import {
   type ChatToolExecutionResult,
   type ChatToolExecutorOptions
 } from "@/lib/chat-tool-executor";
+import { guardAssistantText } from "@/lib/chat-guardrails";
 import type { ChatMessage, ChatSseEvent } from "@/lib/types";
 import type { ChatStreamStatus, ChatToolStatus, ChatUiMessage } from "@/lib/ui-types";
 
@@ -90,7 +91,7 @@ export function useChatController({
           if (event.type === "text_delta") {
             assistantText += event.text;
             updateAssistantMessage(assistantId, {
-              content: assistantText,
+              content: guardAssistantText(assistantText).text,
               status: "streaming"
             });
             return;
@@ -115,7 +116,7 @@ export function useChatController({
             if (result.status === "metric_explained") {
               assistantText = joinAssistantText(assistantText, result.message);
               updateAssistantMessage(assistantId, {
-                content: assistantText,
+                content: guardAssistantText(assistantText).text,
                 status: "streaming"
               });
             }
@@ -127,12 +128,12 @@ export function useChatController({
           }
         });
 
-        if (!assistantText.trim() && fallbackMessages.length > 0) {
-          assistantText = fallbackMessages[0] ?? "";
-        }
+        const finalAssistantText = assistantText.trim()
+          ? guardAssistantText(assistantText).text
+          : fallbackMessages[0] ?? "";
 
         updateAssistantMessage(assistantId, {
-          content: assistantText || "Done.",
+          content: finalAssistantText || "Done. Check the results table for the latest screen.",
           status: "complete"
         });
         setStatus("idle");
@@ -282,25 +283,27 @@ function getToolStatusLabel(toolName: string): string {
 function getToolResultMessage(result: ChatToolExecutionResult): string | null {
   switch (result.status) {
     case "filters_applied":
-      return "Applied filters. The results are updated.";
+      return "Applied filters. The results table is updated.";
     case "filters_cleared":
-      return "Cleared filters.";
+      return "Cleared filters. Start a new screen when you are ready.";
     case "metric_explained":
       return result.message;
     case "saved":
-      return `Saved this screen as ${result.savedName}.`;
+      return `Saved this screen as ${result.savedName}. You can load it from chat or the saved screens menu.`;
     case "overwrite_required":
       return `A saved screen named ${result.savedName} already exists. Use the saved filters menu to overwrite it.`;
     case "invalid_name":
-      return "Use a short name before saving this screen.";
+      return "Use a short name before saving this screen. Saved screen names keep your filters easy to reload.";
     case "loaded":
-      return `Loaded ${result.savedName}.`;
+      return `Loaded ${result.savedName}. The results table is updated.`;
     case "not_found":
       return result.availableNames?.length
         ? `I could not find that saved screen. Available screens: ${result.availableNames.join(", ")}.`
-        : "I could not find that saved screen.";
+        : "I could not find that saved screen. Save a screen first, then load it by name.";
     case "listed":
-      return result.names.length ? `Saved screens: ${result.names.join(", ")}.` : "No saved screens yet.";
+      return result.names.length
+        ? `Saved screens: ${result.names.join(", ")}. Load one by name when you want to reuse it.`
+        : "No saved screens yet. Save a filtered view to reuse it later.";
     default:
       return null;
   }

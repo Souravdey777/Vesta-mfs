@@ -24,9 +24,15 @@ export function ChatPanel({
   starterPrompts
 }: ChatPanelProps) {
   const [input, setInput] = React.useState("");
+  const [isHydrated, setIsHydrated] = React.useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const isStreaming = chat.status === "streaming";
+  const isComposerDisabled = !isHydrated || isStreaming;
   const showStarterPrompts = chat.messages.length === 0;
+
+  React.useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView?.({
@@ -36,7 +42,10 @@ export function ChatPanel({
 
   async function submitMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextMessage = input;
+    const formData = new FormData(event.currentTarget);
+    const nextMessage = String(formData.get("message") ?? input);
+
+    event.currentTarget.reset();
     setInput("");
     await chat.sendMessage(nextMessage);
   }
@@ -96,7 +105,10 @@ export function ChatPanel({
                       message.status === "error" && "bg-destructive/10 text-destructive"
                     )}
                   >
-                    {message.content || (message.status === "streaming" ? "Working..." : "")}
+                    {message.content ||
+                      (message.status === "streaming"
+                        ? "Working on the screen. I will update the results when the filters are ready."
+                        : "")}
                   </div>
                 </div>
               ))}
@@ -131,7 +143,7 @@ export function ChatPanel({
             </label>
             <textarea
               className="min-h-10 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
-              disabled={isStreaming}
+              disabled={isComposerDisabled}
               id="chat-input"
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
@@ -140,11 +152,13 @@ export function ChatPanel({
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
+              name="message"
               placeholder="Ask for funds..."
+              required
               rows={1}
               value={input}
             />
-            <Button disabled={isStreaming || !input.trim()} size="icon" type="submit">
+            <Button disabled={isComposerDisabled} size="icon" type="submit">
               {isStreaming ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (

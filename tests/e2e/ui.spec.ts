@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const sampleFund = {
   aum_cr: 15000,
@@ -70,13 +70,14 @@ test.beforeEach(async ({ page }) => {
 
 test("screens large-cap funds from chat and updates the table", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Message").fill("large cap funds with >15% 3-year returns");
-  await page.getByRole("button", { name: "Send" }).click();
+  await sendChatMessage(page, "large cap funds with >15% 3-year returns");
 
   await expect(page.getByText("Category: Large Cap")).toBeVisible();
   await expect(page.getByText("3Y returns >= 15.00%")).toBeVisible();
   await expect(page.getByText("HDFC Large Cap Direct Growth")).toBeVisible();
+  await expect(page.getByTestId("fund-row")).toContainText("₹15,000.00 Cr");
   await expect(page.getByTestId("fund-row")).toContainText("16.40%");
+  await expect(page.getByTestId("fund-row")).toContainText("₹500");
 });
 
 test("mobile chat can switch to filtered results", async ({ page }) => {
@@ -85,9 +86,21 @@ test("mobile chat can switch to filtered results", async ({ page }) => {
     width: 390
   });
   await page.goto("/");
-  await page.getByText("Large cap funds with >15% 3-year returns").click();
+  await sendChatMessage(page, "large cap funds with >15% 3-year returns");
 
   await expect(page.getByRole("button", { name: "Show results" })).toBeVisible();
   await page.getByRole("button", { name: "Show results" }).click();
   await expect(page.getByText("HDFC Large Cap Direct Growth")).toBeVisible();
 });
+
+async function sendChatMessage(page: Page, message: string) {
+  const input = page.getByLabel("Message");
+  const sendButton = page.getByRole("button", { name: "Send" });
+
+  await expect(input).toBeVisible();
+  await expect(input).toBeEnabled();
+  await expect(sendButton).toBeEnabled();
+  await input.click();
+  await page.keyboard.type(message);
+  await sendButton.click();
+}

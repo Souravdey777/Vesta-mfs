@@ -36,7 +36,7 @@ export const CHAT_TOOL_DEFINITIONS: ChatToolDefinition[] = [
   {
     name: "apply_filters",
     description:
-      "Apply one or more structured mutual fund filters. Use this instead of naming funds. Filters are additive unless replace is true.",
+      "Apply one or more structured mutual fund filters. Use this instead of naming funds in chat; the results table shows fund names. Filters are additive unless replace is true.",
     input_schema: {
       type: "object",
       additionalProperties: false,
@@ -113,7 +113,7 @@ export const CHAT_TOOL_DEFINITIONS: ChatToolDefinition[] = [
   {
     name: "explain_metric",
     description:
-      "Explain a mutual fund metric in plain English using reviewed copy. Use this whenever the user asks what a metric means.",
+      "Explain a mutual fund metric in plain English using reviewed copy. Use this whenever the user asks what a metric means, and do not turn the explanation into advice.",
     input_schema: {
       type: "object",
       additionalProperties: false,
@@ -160,7 +160,8 @@ export const CHAT_TOOL_DEFINITIONS: ChatToolDefinition[] = [
   },
   {
     name: "list_saved_filters",
-    description: "List saved filter names so the assistant can answer without inventing names.",
+    description:
+      "List saved filter names so the assistant can answer without inventing saved screens or fund names.",
     input_schema: noArgsSchema
   }
 ];

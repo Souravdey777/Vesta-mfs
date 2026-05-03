@@ -109,6 +109,10 @@ describe("MF Screener UI", () => {
     const onSortChange = vi.fn();
 
     render(<FundTable funds={[sampleFund]} onSortChange={onSortChange} />);
+    expect(screen.getByText("₹123.45")).toBeInTheDocument();
+    expect(screen.getByText("₹15,000.00 Cr")).toBeInTheDocument();
+    expect(screen.getByText("₹500")).toBeInTheDocument();
+
     fireEvent.click(screen.getByText("HDFC Large Cap Direct Growth"));
 
     expect(screen.getByText("Return snapshot")).toBeInTheDocument();
@@ -167,6 +171,43 @@ describe("MF Screener UI", () => {
     });
   });
 
+  it("renders stable loading and error states for fund results", () => {
+    useFiltersStore.getState().applyFilters({
+      category: "Large Cap"
+    });
+
+    const retry = vi.fn();
+    const { rerender } = render(
+      <FundResults
+        fundsResult={{
+          data: null,
+          error: null,
+          refetch: retry,
+          status: "loading"
+        }}
+        showSavedFilters={false}
+      />
+    );
+
+    expect(screen.getByRole("status", { name: "Loading funds" })).toBeInTheDocument();
+
+    rerender(
+      <FundResults
+        fundsResult={{
+          data: null,
+          error: "Unable to load funds right now.",
+          refetch: retry,
+          status: "error"
+        }}
+        showSavedFilters={false}
+      />
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to load funds right now.");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalled();
+  });
+
   it("removes advanced metric filters from zero-state suggestions", () => {
     useFiltersStore.getState().applyFilters({
       min_sharpe_ratio: 2,
@@ -202,6 +243,32 @@ describe("MF Screener UI", () => {
     expect(useFiltersStore.getState().filters).toEqual({
       max_standard_deviation: 5
     });
+  });
+
+  it("renders a helpful zero-result fallback when no relaxation suggestions exist", () => {
+    useFiltersStore.getState().applyFilters({
+      category: "Large Cap"
+    });
+
+    render(
+      <FundResults
+        fundsResult={{
+          data: createFundsData([], {
+            category: "Large Cap"
+          }, {
+            reason: "no_matches",
+            message: "No funds matched. Try a broader screen.",
+            suggestions: []
+          }),
+          error: null,
+          refetch: vi.fn(),
+          status: "success"
+        }}
+        showSavedFilters={false}
+      />
+    );
+
+    expect(screen.getByText("Try removing a filter or starting with a broader category.")).toBeInTheDocument();
   });
 
   it("sends magic links and signs out from the chat auth CTA", async () => {

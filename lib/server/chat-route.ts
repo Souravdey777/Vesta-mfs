@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { guardAssistantText } from "@/lib/chat-guardrails";
 import { CHAT_TOOL_DEFINITIONS, parseChatToolCall } from "@/lib/chat-tools";
 import { MF_SCREENER_SYSTEM_PROMPT } from "@/lib/prompts";
 import type { ChatMessage, ChatSseEvent } from "@/lib/types";
@@ -168,6 +169,7 @@ export async function writeChatSseStream(
   }
 ) {
   const pendingTools = new Map<number, PendingToolBlock>();
+  const pendingTextBlocks = new Map<number, string>();
 
   try {
     for await (const event of rawStream) {
@@ -176,11 +178,8 @@ export async function writeChatSseStream(
       }
 
       if (event.type === "content_block_start" && event.index !== undefined && event.content_block) {
-        if (isTextStartBlock(event.content_block) && event.content_block.text) {
-          enqueue({
-            type: "text_delta",
-            text: event.content_block.text
-          });
+        if (isTextStartBlock(event.content_block)) {
+          pendingTextBlocks.set(event.index, event.content_block.text ?? "");
         }
 
         if (isToolUseStartBlock(event.content_block)) {
@@ -197,10 +196,14 @@ export async function writeChatSseStream(
         const pendingTool = pendingTools.get(event.index);
 
         if (isTextDelta(event.delta) && event.delta.text) {
-          enqueue({
-            type: "text_delta",
-            text: event.delta.text
-          });
+          if (pendingTextBlocks.has(event.index)) {
+            pendingTextBlocks.set(
+              event.index,
+              `${pendingTextBlocks.get(event.index) ?? ""}${event.delta.text}`
+            );
+          } else {
+            emitGuardedTextDelta(event.delta.text, enqueue);
+          }
         }
 
         if (isInputJsonDelta(event.delta) && pendingTool) {
@@ -209,13 +212,23 @@ export async function writeChatSseStream(
       }
 
       if (event.type === "content_block_stop" && event.index !== undefined) {
+        const pendingText = pendingTextBlocks.get(event.index);
         const pendingTool = pendingTools.get(event.index);
+
+        if (pendingText !== undefined) {
+          emitGuardedTextDelta(pendingText, enqueue);
+          pendingTextBlocks.delete(event.index);
+        }
 
         if (pendingTool) {
           emitCompletedToolCall(pendingTool, enqueue);
           pendingTools.delete(event.index);
         }
       }
+    }
+
+    for (const pendingText of pendingTextBlocks.values()) {
+      emitGuardedTextDelta(pendingText, enqueue);
     }
 
     enqueue({
@@ -228,6 +241,19 @@ export async function writeChatSseStream(
       error: "Chat stream failed."
     });
   }
+}
+
+function emitGuardedTextDelta(text: string, enqueue: (event: ChatSseEvent) => void) {
+  const guarded = guardAssistantText(text);
+
+  if (!guarded.text) {
+    return;
+  }
+
+  enqueue({
+    type: "text_delta",
+    text: guarded.text
+  });
 }
 
 function emitCompletedToolCall(

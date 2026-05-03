@@ -1,4 +1,4 @@
-import { formatCrores, formatPercent } from "@/lib/formatters";
+import { formatCrores, formatDecimal, formatPercent } from "@/lib/formatters";
 import type { FilterKey, FilterState, SortField } from "@/lib/types";
 
 export type FilterChip = {
@@ -90,7 +90,7 @@ export function getFilterChips(filters: FilterState): FilterChip[] {
   if (filters.min_sharpe_ratio !== undefined) {
     chips.push({
       key: "min_sharpe_ratio",
-      label: `Sharpe >= ${filters.min_sharpe_ratio.toFixed(2)}`
+      label: `Sharpe >= ${formatDecimal(filters.min_sharpe_ratio)}`
     });
   }
 
@@ -104,7 +104,7 @@ export function getFilterChips(filters: FilterState): FilterChip[] {
   if (filters.max_beta !== undefined) {
     chips.push({
       key: "max_beta",
-      label: `Beta <= ${filters.max_beta.toFixed(2)}`
+      label: `Beta <= ${formatDecimal(filters.max_beta)}`
     });
   }
 

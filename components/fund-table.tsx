@@ -4,7 +4,14 @@ import * as React from "react";
 import { ChevronDown, ChevronsUpDown } from "lucide-react";
 
 import { getDefaultSortOrder } from "@/lib/filters";
-import { formatCrores, formatCurrency, formatDate, formatNumber, formatPercent } from "@/lib/formatters";
+import {
+  formatCrores,
+  formatCurrency,
+  formatDate,
+  formatDecimal,
+  formatPercent,
+  formatWholeCurrency
+} from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { ApplyFiltersInput, FundRow, SortField, SortOrder } from "@/lib/types";
 
@@ -119,7 +126,7 @@ export function FundTable({ funds, onSortChange, sortBy, sortOrder }: FundTableP
                   <td className="px-3 py-3">{formatDecimal(fund.sharpe_ratio)}</td>
                   <td className="px-3 py-3">{formatPercent(fund.standard_deviation)}</td>
                   <td className="px-3 py-3">{fund.rating ? `${fund.rating}/5` : "-"}</td>
-                  <td className="px-3 py-3">{fund.min_sip ? `₹${formatNumber(fund.min_sip)}` : "-"}</td>
+                  <td className="px-3 py-3">{formatWholeCurrency(fund.min_sip)}</td>
                 </tr>
                 {expanded ? (
                   <tr className="border-b border-border bg-muted/40">
@@ -218,8 +225,4 @@ function ReturnsBars({ fund }: { fund: FundRow }) {
       })}
     </div>
   );
-}
-
-function formatDecimal(value: number | null | undefined): string {
-  return typeof value === "number" ? value.toFixed(2) : "-";
 }
