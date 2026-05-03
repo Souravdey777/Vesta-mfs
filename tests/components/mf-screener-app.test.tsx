@@ -112,12 +112,21 @@ describe("MF Screener UI", () => {
     fireEvent.click(screen.getByText("HDFC Large Cap Direct Growth"));
 
     expect(screen.getByText("Return snapshot")).toBeInTheDocument();
+    expect(screen.getByText("Performance and risk")).toBeInTheDocument();
+    expect(screen.getAllByText("Sharpe").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1.05").length).toBeGreaterThan(0);
     expect(screen.getByText("1% if redeemed within 1 year")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /3Y/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^3Y$/i }));
     expect(onSortChange).toHaveBeenCalledWith({
       sort_by: "returns_3y",
       order: "desc"
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Std dev$/i }));
+    expect(onSortChange).toHaveBeenCalledWith({
+      sort_by: "standard_deviation",
+      order: "asc"
     });
   });
 
@@ -155,6 +164,43 @@ describe("MF Screener UI", () => {
 
     expect(useFiltersStore.getState().filters).toEqual({
       max_expense_ratio: 0.1
+    });
+  });
+
+  it("removes advanced metric filters from zero-state suggestions", () => {
+    useFiltersStore.getState().applyFilters({
+      min_sharpe_ratio: 2,
+      max_standard_deviation: 5
+    });
+
+    render(
+      <FundResults
+        fundsResult={{
+          data: createFundsData([], {
+            min_sharpe_ratio: 2,
+            max_standard_deviation: 5
+          }, {
+            reason: "no_matches",
+            message: "No funds matched. Try relaxing the strictest filters.",
+            suggestions: [
+              {
+                label: "Lower the Sharpe ratio floor",
+                removeFilter: "min_sharpe_ratio"
+              }
+            ]
+          }),
+          error: null,
+          refetch: vi.fn(),
+          status: "success"
+        }}
+        showSavedFilters={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Lower the Sharpe ratio floor" }));
+
+    expect(useFiltersStore.getState().filters).toEqual({
+      max_standard_deviation: 5
     });
   });
 
@@ -245,6 +291,12 @@ const sampleFund: FundRow = {
   returns_1y: 18.2,
   returns_3y: 16.4,
   returns_5y: 14.1,
+  rolling_returns_3y: 15.9,
+  sharpe_ratio: 1.05,
+  standard_deviation: 12.7,
+  beta: 0.92,
+  upside_capture_ratio: 96.3,
+  downside_capture_ratio: 84.8,
   scheme_code: "100001",
   scheme_name: "HDFC Large Cap Direct Growth",
   sub_category: "Large Cap Fund",

@@ -8,9 +8,10 @@ describe("funds hook helpers", () => {
       buildFundsQueryString({
         category: "Large Cap",
         min_returns_3y: 15,
+        min_sharpe_ratio: 1,
         sort_by: "returns_3y",
         order: "desc"
       })
-    ).toBe("category=Large+Cap&min_returns_3y=15&sort_by=returns_3y&order=desc&page=1&pageSize=25");
+    ).toBe("category=Large+Cap&min_returns_3y=15&min_sharpe_ratio=1&sort_by=returns_3y&order=desc&page=1&pageSize=25");
   });
 });

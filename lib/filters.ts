@@ -24,6 +24,12 @@ const DEFAULT_SORT_ORDER: Record<SortField, SortOrder> = {
   returns_1y: "desc",
   returns_3y: "desc",
   returns_5y: "desc",
+  rolling_returns_3y: "desc",
+  sharpe_ratio: "desc",
+  standard_deviation: "asc",
+  beta: "asc",
+  upside_capture_ratio: "desc",
+  downside_capture_ratio: "asc",
   aum: "desc",
   expense_ratio: "asc",
   rating: "desc"
@@ -94,6 +100,30 @@ export function normalizeFilterState(input: Partial<FilterState>): FilterState {
 
   if (isFiniteNumber(input.min_returns_5y)) {
     normalized.min_returns_5y = input.min_returns_5y;
+  }
+
+  if (isFiniteNumber(input.min_rolling_returns_3y)) {
+    normalized.min_rolling_returns_3y = input.min_rolling_returns_3y;
+  }
+
+  if (isFiniteNumber(input.min_sharpe_ratio)) {
+    normalized.min_sharpe_ratio = input.min_sharpe_ratio;
+  }
+
+  if (isFiniteNumber(input.max_standard_deviation)) {
+    normalized.max_standard_deviation = input.max_standard_deviation;
+  }
+
+  if (isFiniteNumber(input.max_beta)) {
+    normalized.max_beta = input.max_beta;
+  }
+
+  if (isFiniteNumber(input.min_upside_capture_ratio)) {
+    normalized.min_upside_capture_ratio = input.min_upside_capture_ratio;
+  }
+
+  if (isFiniteNumber(input.max_downside_capture_ratio)) {
+    normalized.max_downside_capture_ratio = input.max_downside_capture_ratio;
   }
 
   if (isRating(input.min_rating)) {

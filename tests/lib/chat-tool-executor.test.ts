@@ -14,7 +14,8 @@ describe("chat tool executor", () => {
     const applied = await executeChatToolCall(toolCall("apply_filters", {
       category: "Large Cap",
       min_returns_3y: 15,
-      sort_by: "returns_3y"
+      min_sharpe_ratio: 1,
+      sort_by: "sharpe_ratio"
     }));
 
     expect(applied).toMatchObject({
@@ -22,7 +23,8 @@ describe("chat tool executor", () => {
       filters: {
         category: "Large Cap",
         min_returns_3y: 15,
-        sort_by: "returns_3y",
+        min_sharpe_ratio: 1,
+        sort_by: "sharpe_ratio",
         order: "desc"
       }
     });
@@ -47,6 +49,13 @@ describe("chat tool executor", () => {
     });
     expect(result.status === "metric_explained" ? result.message : "").toContain(
       "yearly fee"
+    );
+
+    const advanced = await executeChatToolCall(toolCall("explain_metric", {
+      metric: "downside_capture_ratio"
+    }));
+    expect(advanced.status === "metric_explained" ? advanced.message : "").toContain(
+      "fell less"
     );
   });
 

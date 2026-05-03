@@ -10,9 +10,15 @@ const SORT_LABELS: Record<SortField, string> = {
   aum: "AUM",
   expense_ratio: "expense ratio",
   rating: "rating",
+  beta: "beta",
+  downside_capture_ratio: "downside capture",
+  rolling_returns_3y: "rolling 3Y returns",
   returns_1y: "1Y returns",
   returns_3y: "3Y returns",
-  returns_5y: "5Y returns"
+  returns_5y: "5Y returns",
+  sharpe_ratio: "Sharpe ratio",
+  standard_deviation: "standard deviation",
+  upside_capture_ratio: "upside capture"
 };
 
 export function getFilterChips(filters: FilterState): FilterChip[] {
@@ -71,6 +77,48 @@ export function getFilterChips(filters: FilterState): FilterChip[] {
     chips.push({
       key: "min_returns_5y",
       label: `5Y returns >= ${formatPercent(filters.min_returns_5y)}`
+    });
+  }
+
+  if (filters.min_rolling_returns_3y !== undefined) {
+    chips.push({
+      key: "min_rolling_returns_3y",
+      label: `Rolling 3Y >= ${formatPercent(filters.min_rolling_returns_3y)}`
+    });
+  }
+
+  if (filters.min_sharpe_ratio !== undefined) {
+    chips.push({
+      key: "min_sharpe_ratio",
+      label: `Sharpe >= ${filters.min_sharpe_ratio.toFixed(2)}`
+    });
+  }
+
+  if (filters.max_standard_deviation !== undefined) {
+    chips.push({
+      key: "max_standard_deviation",
+      label: `Std dev <= ${formatPercent(filters.max_standard_deviation)}`
+    });
+  }
+
+  if (filters.max_beta !== undefined) {
+    chips.push({
+      key: "max_beta",
+      label: `Beta <= ${filters.max_beta.toFixed(2)}`
+    });
+  }
+
+  if (filters.min_upside_capture_ratio !== undefined) {
+    chips.push({
+      key: "min_upside_capture_ratio",
+      label: `Upside capture >= ${formatPercent(filters.min_upside_capture_ratio)}`
+    });
+  }
+
+  if (filters.max_downside_capture_ratio !== undefined) {
+    chips.push({
+      key: "max_downside_capture_ratio",
+      label: `Downside capture <= ${formatPercent(filters.max_downside_capture_ratio)}`
     });
   }
 

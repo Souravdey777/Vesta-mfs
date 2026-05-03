@@ -20,7 +20,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
   const source = url.searchParams.get("source") === "sample" ? "sample" : "amfi";
-  const prepared = await prepareFundRows({ source });
+  const prepared = await prepareFundRows({
+    source
+  });
   const summary = summarizePreparedRows(prepared);
 
   if (dryRun) {

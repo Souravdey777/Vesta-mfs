@@ -62,6 +62,24 @@ export const CHAT_TOOL_DEFINITIONS: ChatToolDefinition[] = [
         min_returns_5y: {
           type: "number"
         },
+        min_rolling_returns_3y: {
+          type: "number"
+        },
+        min_sharpe_ratio: {
+          type: "number"
+        },
+        max_standard_deviation: {
+          type: "number"
+        },
+        max_beta: {
+          type: "number"
+        },
+        min_upside_capture_ratio: {
+          type: "number"
+        },
+        max_downside_capture_ratio: {
+          type: "number"
+        },
         min_rating: {
           type: "integer",
           enum: RATINGS
@@ -155,6 +173,12 @@ const applyFiltersInputSchema = z
     min_returns_1y: z.number().finite().optional(),
     min_returns_3y: z.number().finite().optional(),
     min_returns_5y: z.number().finite().optional(),
+    min_rolling_returns_3y: z.number().finite().optional(),
+    min_sharpe_ratio: z.number().finite().optional(),
+    max_standard_deviation: z.number().finite().optional(),
+    max_beta: z.number().finite().optional(),
+    min_upside_capture_ratio: z.number().finite().optional(),
+    max_downside_capture_ratio: z.number().finite().optional(),
     min_rating: z.enum(["1", "2", "3", "4", "5"]).or(z.number().int().min(1).max(5)).optional(),
     fund_house: z.string().trim().min(1).optional(),
     plan_type: z.enum(PLAN_TYPES).optional(),
@@ -198,12 +222,20 @@ export const METRIC_EXPLANATIONS: Record<MetricName, string> = {
     "Expense ratio is the yearly fee a fund charges to manage your money. Lower is generally better, because it leaves more of the fund return with you.",
   aum:
     "AUM means assets under management: the total money investors have put into the fund. Very small AUM can be less stable, while very large AUM can sometimes be slower to move.",
+  rolling_returns_3y:
+    "Rolling 3-year returns show how the fund performed across many overlapping 3-year periods, not just one start and end date. They are useful for checking consistency.",
   sharpe_ratio:
     "Sharpe ratio compares return with volatility. A higher Sharpe ratio means the fund has delivered more return for each unit of risk taken.",
+  standard_deviation:
+    "Standard deviation measures how widely returns have moved around their average. A lower value usually means a smoother ride, while a higher value means more volatility.",
   alpha:
     "Alpha measures how much a fund outperformed or underperformed its benchmark after adjusting for market movement. Positive alpha means the fund added value versus the benchmark.",
   beta:
     "Beta measures how much a fund tends to move compared with the market. A beta above 1 usually means more market sensitivity; below 1 usually means less.",
+  upside_capture_ratio:
+    "Upside capture compares how much of a benchmark's gains the fund captured during positive market periods. A value above 100 means it rose more than the benchmark in those periods.",
+  downside_capture_ratio:
+    "Downside capture compares how much of a benchmark's losses the fund participated in during negative market periods. Lower is usually better because it means the fund fell less.",
   exit_load:
     "Exit load is a fee charged if you redeem units before a stated holding period. It matters most if you might need to withdraw soon.",
   category_definition:

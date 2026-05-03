@@ -47,7 +47,9 @@ describe("chat prompt and tool definitions", () => {
       parseChatToolCall("toolu_1", "apply_filters", {
         category: "Large Cap",
         min_returns_3y: 15,
-        sort_by: "returns_3y"
+        min_sharpe_ratio: 1,
+        max_standard_deviation: 15,
+        sort_by: "sharpe_ratio"
       })
     ).toMatchObject({
       ok: true,
@@ -57,7 +59,9 @@ describe("chat prompt and tool definitions", () => {
         input: {
           category: "Large Cap",
           min_returns_3y: 15,
-          sort_by: "returns_3y"
+          min_sharpe_ratio: 1,
+          max_standard_deviation: 15,
+          sort_by: "sharpe_ratio"
         }
       }
     });

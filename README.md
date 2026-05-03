@@ -47,6 +47,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 CRON_SECRET=
 AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
+MF_DATA_API_BASE_URL=https://mfdata.in/api/v1
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` is server-only and should be used only for seed/admin scripts.
@@ -64,6 +65,8 @@ AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
 - `npm run test:e2e` runs Playwright tests.
 - `npm run seed:dry-run` validates the sample AMFI NAV fixture and enrichment join without writing.
 - `npm run seed` fetches AMFI NAV data and upserts rows into Supabase.
+- `npm run seed -- --enrichment-source=mfdata` fetches actual AUM, expense ratio, rating, and category enrichment from mfdata.in.
+- `npm run seed -- --enrichment-source=mfdata --mfdata-full` also fetches actual returns, Sharpe, standard deviation, beta, minimum SIP, and exit load where mfdata.in has coverage.
 
 ## Fund Query API
 
@@ -73,7 +76,7 @@ AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
 /api/funds?category=Large%20Cap&min_returns_3y=15&page=1&pageSize=25
 ```
 
-Supported filters mirror the chat tool state: category, AUM floor, expense-ratio cap, return floors, rating floor, fund house, plan type, sort field, and order. Invalid query params return `400` with sanitized validation issues. Empty result sets return zero-state metadata with suggested filters to relax.
+Supported filters mirror the chat tool state: category, AUM floor, expense-ratio cap, return floors, rolling 3-year return floor, Sharpe floor, volatility cap, beta cap, upside/downside capture filters, rating floor, fund house, plan type, sort field, and order. Invalid query params return `400` with sanitized validation issues. Empty result sets return zero-state metadata with suggested filters to relax.
 
 ## Chat API
 
@@ -89,7 +92,15 @@ If local anonymous saves exist after sign-in, the dropdown offers to sync them. 
 
 ## UI
 
-The home page is the working screener: chat drives tool calls, filters refresh `/api/funds`, chips can remove filters directly, and the fund table expands rows for return snapshots and exit-load details. The chat panel includes Supabase magic-link sign-in; `/auth/callback` exchanges the link code and returns to the screener.
+The home page is the working screener: chat drives tool calls, filters refresh `/api/funds`, chips can remove filters directly, and the fund table expands rows for return snapshots, advanced performance/risk metrics, and exit-load details. The chat panel includes Supabase magic-link sign-in; `/auth/callback` exchanges the link code and returns to the screener.
+
+## Advanced Metrics
+
+The demo fixture includes curated enrichment fields for rolling 3-year returns, Sharpe ratio, standard deviation, beta, upside capture ratio, and downside capture ratio. These live in `data/enriched-funds.seed.json` and are useful for offline development.
+
+For actual enrichment, use `--enrichment-source=mfdata`. mfdata.in provides actual AUM, TER, ratings, return windows, Sharpe, standard deviation, beta, minimum SIP, and exit load for covered schemes. True rolling returns and upside/downside capture are left `null` unless a real source or historical computation pipeline is added.
+
+AMFI remains the NAV source. A production version should compute missing rolling/capture metrics from historical fund NAVs and benchmark TRI data, or use a licensed data provider.
 
 ## Supabase Setup
 
@@ -110,15 +121,17 @@ Open the Supabase SQL Editor and run the SQL in:
 
 ```bash
 supabase/migrations/001_create_funds_and_saved_filters.sql
+supabase/migrations/002_add_advanced_fund_metrics.sql
 ```
 
-The migration creates:
+The migrations create:
 
 - `public.funds`, with public read-only access for fund data.
+- Advanced nullable metric columns on `public.funds`.
 - `public.saved_filters`, with RLS policies so users can only access their own saved filters.
 - `public.set_updated_at()`, used to maintain `saved_filters.updated_at`.
 
-If you prefer the Supabase CLI, apply the same migration through your linked project after installing and configuring the CLI.
+If you prefer the Supabase CLI, apply the same migrations through your linked project after installing and configuring the CLI.
 
 For a direct Postgres connection, you can also run:
 
@@ -152,7 +165,7 @@ Upsert fund rows into Supabase:
 npm run seed
 ```
 
-By default, dry-run uses `data/amfi-nav.sample.txt` so it works offline. The real seed command fetches the AMFI bulk NAV file, merges `data/enriched-funds.seed.json`, and upserts by `scheme_code`.
+By default, dry-run uses `data/amfi-nav.sample.txt` so it works offline. The real seed command fetches the AMFI bulk NAV file, merges `data/enriched-funds.seed.json`, and upserts by `scheme_code`. Missing enrichment values are stored as `null`; ingestion does not fetch thousands of per-scheme API calls during app boot.
 
 ### 5. Configure Vercel Cron
 
@@ -175,6 +188,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 CRON_SECRET=
 AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt
+MF_DATA_API_BASE_URL=https://mfdata.in/api/v1
 ```
 
 For local route testing, call:
@@ -192,6 +206,7 @@ The app reads from Supabase only. External NAV data is used by seed and cron ing
 - Brokerage integration or an "invest now" flow.
 - Portfolio tracking.
 - Live scraping during app boot.
+- Live computed rolling/risk analytics; the current advanced metrics are demo fixtures.
 - A comparison view.
 - Free-text fund recommendations generated from model memory.
 

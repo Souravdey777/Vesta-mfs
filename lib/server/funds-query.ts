@@ -18,7 +18,7 @@ import {
 } from "@/lib/types";
 
 const FUNDS_SELECT_COLUMNS =
-  "scheme_code,scheme_name,fund_house,category,sub_category,plan_type,nav,aum_cr,expense_ratio,returns_1y,returns_3y,returns_5y,rating,min_sip,exit_load,updated_at";
+  "scheme_code,scheme_name,fund_house,category,sub_category,plan_type,nav,aum_cr,expense_ratio,returns_1y,returns_3y,returns_5y,rolling_returns_3y,sharpe_ratio,standard_deviation,beta,upside_capture_ratio,downside_capture_ratio,rating,min_sip,exit_load,updated_at";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 25;
@@ -28,6 +28,12 @@ const SORT_COLUMN_BY_FIELD: Record<SortField, FundsSortColumn> = {
   returns_1y: "returns_1y",
   returns_3y: "returns_3y",
   returns_5y: "returns_5y",
+  rolling_returns_3y: "rolling_returns_3y",
+  sharpe_ratio: "sharpe_ratio",
+  standard_deviation: "standard_deviation",
+  beta: "beta",
+  upside_capture_ratio: "upside_capture_ratio",
+  downside_capture_ratio: "downside_capture_ratio",
   aum: "aum_cr",
   expense_ratio: "expense_ratio",
   rating: "rating"
@@ -40,6 +46,12 @@ const FILTER_RELAXATION_ORDER: Array<{
   { key: "min_returns_5y", label: "Remove the 5-year return floor" },
   { key: "min_returns_3y", label: "Remove the 3-year return floor" },
   { key: "min_returns_1y", label: "Remove the 1-year return floor" },
+  { key: "min_rolling_returns_3y", label: "Remove the rolling 3-year return floor" },
+  { key: "min_sharpe_ratio", label: "Lower the Sharpe ratio floor" },
+  { key: "max_standard_deviation", label: "Relax the volatility cap" },
+  { key: "max_beta", label: "Relax the beta cap" },
+  { key: "min_upside_capture_ratio", label: "Lower the upside capture floor" },
+  { key: "max_downside_capture_ratio", label: "Relax the downside capture cap" },
   { key: "max_expense_ratio", label: "Relax the expense ratio cap" },
   { key: "min_rating", label: "Lower the rating floor" },
   { key: "min_aum_cr", label: "Lower the AUM floor" },
@@ -55,6 +67,12 @@ const fundsQuerySchema = z.object({
   min_returns_1y: optionalFiniteNumberSchema(),
   min_returns_3y: optionalFiniteNumberSchema(),
   min_returns_5y: optionalFiniteNumberSchema(),
+  min_rolling_returns_3y: optionalFiniteNumberSchema(),
+  min_sharpe_ratio: optionalFiniteNumberSchema(),
+  max_standard_deviation: optionalNonNegativeNumberSchema(),
+  max_beta: optionalNonNegativeNumberSchema(),
+  min_upside_capture_ratio: optionalFiniteNumberSchema(),
+  max_downside_capture_ratio: optionalNonNegativeNumberSchema(),
   min_rating: z.preprocess(
     emptyStringToUndefined,
     z.coerce.number().int().min(1).max(5).optional()
@@ -77,6 +95,12 @@ export type FundsSortColumn =
   | "returns_1y"
   | "returns_3y"
   | "returns_5y"
+  | "rolling_returns_3y"
+  | "sharpe_ratio"
+  | "standard_deviation"
+  | "beta"
+  | "upside_capture_ratio"
+  | "downside_capture_ratio"
   | "aum_cr"
   | "expense_ratio"
   | "rating";
@@ -273,6 +297,30 @@ function applyFundsFilters(query: FundsQueryBuilder, filters: FilterState): Fund
     next = next.gte("returns_5y", filters.min_returns_5y);
   }
 
+  if (filters.min_rolling_returns_3y !== undefined) {
+    next = next.gte("rolling_returns_3y", filters.min_rolling_returns_3y);
+  }
+
+  if (filters.min_sharpe_ratio !== undefined) {
+    next = next.gte("sharpe_ratio", filters.min_sharpe_ratio);
+  }
+
+  if (filters.max_standard_deviation !== undefined) {
+    next = next.lte("standard_deviation", filters.max_standard_deviation);
+  }
+
+  if (filters.max_beta !== undefined) {
+    next = next.lte("beta", filters.max_beta);
+  }
+
+  if (filters.min_upside_capture_ratio !== undefined) {
+    next = next.gte("upside_capture_ratio", filters.min_upside_capture_ratio);
+  }
+
+  if (filters.max_downside_capture_ratio !== undefined) {
+    next = next.lte("downside_capture_ratio", filters.max_downside_capture_ratio);
+  }
+
   if (filters.min_rating !== undefined) {
     next = next.gte("rating", filters.min_rating);
   }
@@ -343,6 +391,30 @@ function buildFilterState(data: z.infer<typeof fundsQuerySchema>): FilterState {
     filters.min_returns_5y = data.min_returns_5y;
   }
 
+  if (data.min_rolling_returns_3y !== undefined) {
+    filters.min_rolling_returns_3y = data.min_rolling_returns_3y;
+  }
+
+  if (data.min_sharpe_ratio !== undefined) {
+    filters.min_sharpe_ratio = data.min_sharpe_ratio;
+  }
+
+  if (data.max_standard_deviation !== undefined) {
+    filters.max_standard_deviation = data.max_standard_deviation;
+  }
+
+  if (data.max_beta !== undefined) {
+    filters.max_beta = data.max_beta;
+  }
+
+  if (data.min_upside_capture_ratio !== undefined) {
+    filters.min_upside_capture_ratio = data.min_upside_capture_ratio;
+  }
+
+  if (data.max_downside_capture_ratio !== undefined) {
+    filters.max_downside_capture_ratio = data.max_downside_capture_ratio;
+  }
+
   if (data.min_rating !== undefined) {
     filters.min_rating = data.min_rating as Rating;
   }
@@ -371,6 +443,12 @@ function readFundsQueryParams(searchParams: URLSearchParams) {
     min_returns_1y: searchParams.get("min_returns_1y") ?? undefined,
     min_returns_3y: searchParams.get("min_returns_3y") ?? undefined,
     min_returns_5y: searchParams.get("min_returns_5y") ?? undefined,
+    min_rolling_returns_3y: searchParams.get("min_rolling_returns_3y") ?? undefined,
+    min_sharpe_ratio: searchParams.get("min_sharpe_ratio") ?? undefined,
+    max_standard_deviation: searchParams.get("max_standard_deviation") ?? undefined,
+    max_beta: searchParams.get("max_beta") ?? undefined,
+    min_upside_capture_ratio: searchParams.get("min_upside_capture_ratio") ?? undefined,
+    max_downside_capture_ratio: searchParams.get("max_downside_capture_ratio") ?? undefined,
     min_rating: searchParams.get("min_rating") ?? undefined,
     fund_house: searchParams.get("fund_house") ?? undefined,
     plan_type: searchParams.get("plan_type") ?? undefined,

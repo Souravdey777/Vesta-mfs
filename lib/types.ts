@@ -15,6 +15,12 @@ export const SORT_FIELDS = [
   "returns_1y",
   "returns_3y",
   "returns_5y",
+  "rolling_returns_3y",
+  "sharpe_ratio",
+  "standard_deviation",
+  "beta",
+  "upside_capture_ratio",
+  "downside_capture_ratio",
   "aum",
   "expense_ratio",
   "rating"
@@ -24,9 +30,13 @@ export const RATINGS = [1, 2, 3, 4, 5] as const;
 export const METRIC_NAMES = [
   "expense_ratio",
   "aum",
+  "rolling_returns_3y",
   "sharpe_ratio",
+  "standard_deviation",
   "alpha",
   "beta",
+  "upside_capture_ratio",
+  "downside_capture_ratio",
   "exit_load",
   "category_definition"
 ] as const;
@@ -46,6 +56,12 @@ export type FilterState = {
   min_returns_1y?: number;
   min_returns_3y?: number;
   min_returns_5y?: number;
+  min_rolling_returns_3y?: number;
+  min_sharpe_ratio?: number;
+  max_standard_deviation?: number;
+  max_beta?: number;
+  min_upside_capture_ratio?: number;
+  max_downside_capture_ratio?: number;
   min_rating?: Rating;
   fund_house?: string;
   plan_type?: PlanType;
@@ -68,6 +84,12 @@ export type FundRow = {
   returns_1y: number | null;
   returns_3y: number | null;
   returns_5y: number | null;
+  rolling_returns_3y: number | null;
+  sharpe_ratio: number | null;
+  standard_deviation: number | null;
+  beta: number | null;
+  upside_capture_ratio: number | null;
+  downside_capture_ratio: number | null;
   rating: Rating | null;
   min_sip: number | null;
   exit_load: string | null;

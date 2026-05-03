@@ -5,31 +5,49 @@ HDFC Mutual Fund
 125497;INF179K01BB2;;HDFC Top 100 Fund - Direct Plan - Growth;942.4560;02-May-2026
 125498;INF179K01BC0;;HDFC Top 100 Fund - Regular Plan - Growth;901.2140;02-May-2026
 120503;INF846K01DP8;;Axis Bluechip Fund - Direct Plan - Growth;67.8123;02-May-2026
+120586;INF109K016L0;;ICICI Prudential Bluechip Fund - Direct Plan - Growth;109.4321;02-May-2026
+119598;INF200K01QX4;;SBI Bluechip Fund - Direct Plan - Growth;98.2278;02-May-2026
+118825;INF204K01XI3;;Nippon India Large Cap Fund - Direct Plan - Growth;87.6432;02-May-2026
 
 Open Ended Schemes ( Equity Scheme - Mid Cap Fund )
 Kotak Mahindra Mutual Fund
 118989;INF174K01LS2;;Kotak Emerging Equity Fund - Direct Plan - Growth;147.3892;02-May-2026
+127039;INF247L01445;;Motilal Oswal Midcap Fund - Direct Plan - Growth;84.7712;02-May-2026
+118834;INF179K01XY8;;HDFC Mid-Cap Opportunities Fund - Direct Plan - Growth;211.9132;02-May-2026
 
 Open Ended Schemes ( Equity Scheme - Small Cap Fund )
 Nippon India Mutual Fund
 120465;INF204K01K15;;Nippon India Small Cap Fund - Direct Plan - Growth;182.1184;02-May-2026
+125354;INF200K01T28;;SBI Small Cap Fund - Direct Plan - Growth;224.5610;02-May-2026
+125307;INF846K01EW2;;Axis Small Cap Fund - Direct Plan - Growth;97.3401;02-May-2026
 
 Open Ended Schemes ( Equity Scheme - Flexi Cap Fund )
 Parag Parikh Mutual Fund
 122639;INF879O01027;;Parag Parikh Flexi Cap Fund - Direct Plan - Growth;91.6831;02-May-2026
+118955;INF179K01YV8;;HDFC Flexi Cap Fund - Direct Plan - Growth;157.9910;02-May-2026
+120828;INF966L01689;;Quant Flexi Cap Fund - Direct Plan - Growth;116.4087;02-May-2026
+146130;INF192K01CC3;;JM Flexicap Fund - Direct Plan - Growth;104.8819;02-May-2026
 
 Open Ended Schemes ( Equity Scheme - ELSS )
 Mirae Asset Mutual Fund
 135781;INF769K01DM9;;Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth;54.3377;02-May-2026
+1204651;INF846K01ES0;;Axis ELSS Tax Saver Fund - Direct Plan - Growth;93.6814;02-May-2026
+118778;INF760K01EL8;;Canara Robeco ELSS Tax Saver Fund - Direct Plan - Growth;142.7319;02-May-2026
 
 Open Ended Schemes ( Hybrid Scheme - Aggressive Hybrid Fund )
 ICICI Prudential Mutual Fund
 120710;INF109K01VQ1;;ICICI Prudential Equity & Debt Fund - Direct Plan - Growth;401.5522;02-May-2026
+118832;INF179K01YH7;;HDFC Balanced Advantage Fund - Direct Plan - Growth;508.1103;02-May-2026
+119552;INF200K01RR8;;SBI Equity Hybrid Fund - Direct Plan - Growth;285.7714;02-May-2026
 
 Open Ended Schemes ( Debt Scheme - Corporate Bond Fund )
 Aditya Birla Sun Life Mutual Fund
 119551;INF209K01UN8;;Aditya Birla Sun Life Corporate Bond Fund - Direct Plan - Growth;112.9045;02-May-2026
+118968;INF179K01VO7;;HDFC Short Term Debt Fund - Direct Plan - Growth;29.8432;02-May-2026
+120606;INF109K01UQ2;;ICICI Prudential Banking and PSU Debt Fund - Direct Plan - Growth;31.5418;02-May-2026
 
 Open Ended Schemes ( Other Scheme - Index Funds )
 UTI Mutual Fund
 120716;INF789F01XA0;;UTI Nifty 50 Index Fund - Direct Plan - Growth;168.4430;02-May-2026
+119064;INF179K01VK5;;HDFC Index Fund - Sensex Plan - Direct Plan - Growth;756.9021;02-May-2026
+120620;INF109K01Y56;;ICICI Prudential Nifty Next 50 Index Fund - Direct Plan - Growth;63.2194;02-May-2026

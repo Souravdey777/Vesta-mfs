@@ -23,6 +23,10 @@ async function main() {
   }
 
   const prepared = await prepareFundRows({
+    enrichmentSource: options.enrichmentSource,
+    mfDataDetailDelayMs: options.mfDataDetailDelayMs,
+    mfDataFullDetails: options.mfDataFullDetails,
+    mfDataMaxDetails: options.mfDataMaxDetails,
     source,
     limitToEnriched: options.limitToEnriched
   });
@@ -52,14 +56,28 @@ async function main() {
 function parseArgs(args) {
   const sourceArg = args.find((arg) => arg.startsWith("--source="));
   const source = sourceArg?.split("=")[1];
+  const enrichmentSourceArg = args.find((arg) => arg.startsWith("--enrichment-source="));
+  const enrichmentSource = enrichmentSourceArg?.split("=")[1] ?? "fixture";
+  const delayArg = args.find((arg) => arg.startsWith("--mfdata-detail-delay-ms="));
+  const maxDetailsArg = args.find((arg) => arg.startsWith("--mfdata-max-details="));
 
   if (source != null && source !== "sample" && source !== "amfi") {
     throw new Error(`Unsupported source "${source}". Use --source=sample or --source=amfi.`);
   }
 
+  if (enrichmentSource !== "fixture" && enrichmentSource !== "mfdata") {
+    throw new Error(
+      `Unsupported enrichment source "${enrichmentSource}". Use --enrichment-source=fixture or --enrichment-source=mfdata.`
+    );
+  }
+
   return {
     dryRun: args.includes("--dry-run"),
+    enrichmentSource,
     limitToEnriched: args.includes("--limit-to-enriched"),
+    mfDataDetailDelayMs: delayArg == null ? 2100 : Number(delayArg.split("=")[1]),
+    mfDataFullDetails: args.includes("--mfdata-full"),
+    mfDataMaxDetails: maxDetailsArg == null ? undefined : Number(maxDetailsArg.split("=")[1]),
     source
   };
 }

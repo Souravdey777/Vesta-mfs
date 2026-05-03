@@ -104,10 +104,16 @@ Applies one or more filter changes to the current filter state. Filters are addi
   min_returns_1y?: number      // percent
   min_returns_3y?: number
   min_returns_5y?: number
+  min_rolling_returns_3y?: number
+  min_sharpe_ratio?: number
+  max_standard_deviation?: number
+  max_beta?: number
+  min_upside_capture_ratio?: number
+  max_downside_capture_ratio?: number
   min_rating?: 1 | 2 | 3 | 4 | 5
   fund_house?: string          // e.g. "HDFC", "Axis"
   plan_type?: "Direct" | "Regular"
-  sort_by?: "returns_1y" | "returns_3y" | "returns_5y" | "aum" | "expense_ratio" | "rating"
+  sort_by?: "returns_1y" | "returns_3y" | "returns_5y" | "rolling_returns_3y" | "sharpe_ratio" | "standard_deviation" | "beta" | "upside_capture_ratio" | "downside_capture_ratio" | "aum" | "expense_ratio" | "rating"
   order?: "asc" | "desc"
   replace?: boolean            // if true, clear existing filters first
 }
@@ -123,7 +129,7 @@ Returns a plain-English explanation of a fund metric to render as an inline chat
 
 ```ts
 {
-  metric: "expense_ratio" | "aum" | "sharpe_ratio" | "alpha" | "beta" | "exit_load" | "category_definition"
+  metric: "expense_ratio" | "aum" | "rolling_returns_3y" | "sharpe_ratio" | "standard_deviation" | "alpha" | "beta" | "upside_capture_ratio" | "downside_capture_ratio" | "exit_load" | "category_definition"
   context?: string  // optional, for personalised explanations
 }
 ```
@@ -198,7 +204,7 @@ Rule 6 is the most important UX rule. Asking clarifying questions in a screener 
 
 Primary: AMFI NAVAll.txt (free, daily, official). https://www.amfiindia.com/spages/NAVAll.txt
 
-Enriched: scraped or manually curated returns, ratings, expense ratios, AUM, and category from Value Research or Moneycontrol. For the 5-day build, ship with a static enriched dataset of the top ~500 funds by AUM. Do not try to live-scrape during the demo.
+Enriched: scraped or manually curated returns, ratings, expense ratios, AUM, and category from Value Research, Moneycontrol, or mfdata.in. For offline development, ship with a static enriched dataset. For actual database enrichment, use `npm run seed -- --enrichment-source=mfdata`; add `--mfdata-full` when you need returns, Sharpe, standard deviation, beta, minimum SIP, and exit load where mfdata.in has coverage. Never fill missing metrics with invented estimates.
 
 ### Supabase Setup
 
@@ -230,6 +236,12 @@ create table public.funds (
   returns_1y numeric(6, 2),
   returns_3y numeric(6, 2),
   returns_5y numeric(6, 2),
+  rolling_returns_3y numeric(6, 2),
+  sharpe_ratio numeric(6, 2),
+  standard_deviation numeric(6, 2),
+  beta numeric(6, 2),
+  upside_capture_ratio numeric(6, 2),
+  downside_capture_ratio numeric(6, 2),
   rating integer check (rating between 1 and 5),
   min_sip integer,
   exit_load text,

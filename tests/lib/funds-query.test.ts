@@ -23,6 +23,12 @@ const SAMPLE_FUND: FundRow = {
   returns_1y: 18.2,
   returns_3y: 16.4,
   returns_5y: 14.1,
+  rolling_returns_3y: 15.9,
+  sharpe_ratio: 1.05,
+  standard_deviation: 12.7,
+  beta: 0.92,
+  upside_capture_ratio: 96.3,
+  downside_capture_ratio: 84.8,
   rating: 5,
   min_sip: 500,
   exit_load: "1% if redeemed within 1 year",
@@ -38,6 +44,12 @@ describe("funds query parsing", () => {
       min_returns_1y: "10",
       min_returns_3y: "15",
       min_returns_5y: "12",
+      min_rolling_returns_3y: "14",
+      min_sharpe_ratio: "1",
+      max_standard_deviation: "15",
+      max_beta: "1",
+      min_upside_capture_ratio: "90",
+      max_downside_capture_ratio: "85",
       min_rating: "4",
       fund_house: " HDFC ",
       plan_type: "Direct",
@@ -54,6 +66,12 @@ describe("funds query parsing", () => {
         min_returns_1y: 10,
         min_returns_3y: 15,
         min_returns_5y: 12,
+        min_rolling_returns_3y: 14,
+        min_sharpe_ratio: 1,
+        max_standard_deviation: 15,
+        max_beta: 1,
+        min_upside_capture_ratio: 90,
+        max_downside_capture_ratio: 85,
         min_rating: 4,
         fund_house: "HDFC",
         plan_type: "Direct",
@@ -74,11 +92,12 @@ describe("funds query parsing", () => {
       category: "Liquid",
       plan_type: "Growth",
       min_rating: "6",
+      max_beta: "-1",
       order: "sideways"
     });
 
     expect(issues.map((issue) => issue.path)).toEqual(
-      expect.arrayContaining(["category", "plan_type", "min_rating", "order"])
+      expect.arrayContaining(["category", "plan_type", "min_rating", "max_beta", "order"])
     );
   });
 
@@ -111,6 +130,21 @@ describe("funds query parsing", () => {
       order: "desc"
     });
   });
+
+  it("defaults advanced metric sort directions", () => {
+    expect(expectValidFundsQuery({ sort_by: "rolling_returns_3y" }).sort).toEqual({
+      column: "rolling_returns_3y",
+      order: "desc"
+    });
+    expect(expectValidFundsQuery({ sort_by: "sharpe_ratio" }).sort).toEqual({
+      column: "sharpe_ratio",
+      order: "desc"
+    });
+    expect(expectValidFundsQuery({ sort_by: "standard_deviation" }).sort).toEqual({
+      column: "standard_deviation",
+      order: "asc"
+    });
+  });
 });
 
 describe("funds Supabase query", () => {
@@ -127,6 +161,12 @@ describe("funds Supabase query", () => {
       min_returns_1y: "10",
       min_returns_3y: "15",
       min_returns_5y: "12",
+      min_rolling_returns_3y: "14",
+      min_sharpe_ratio: "1",
+      max_standard_deviation: "15",
+      max_beta: "1",
+      min_upside_capture_ratio: "90",
+      max_downside_capture_ratio: "85",
       min_rating: "4",
       fund_house: "HDFC",
       plan_type: "Direct",
@@ -155,6 +195,12 @@ describe("funds Supabase query", () => {
       "gte:returns_1y:10",
       "gte:returns_3y:15",
       "gte:returns_5y:12",
+      "gte:rolling_returns_3y:14",
+      "gte:sharpe_ratio:1",
+      "lte:standard_deviation:15",
+      "lte:beta:1",
+      "gte:upside_capture_ratio:90",
+      "lte:downside_capture_ratio:85",
       "gte:rating:4",
       "ilike:fund_house:%HDFC%",
       "order:aum_cr:desc:nulls_last",
@@ -192,6 +238,31 @@ describe("funds Supabase query", () => {
         }
       ]
     });
+  });
+
+  it("suggests relaxing advanced metric filters when they produce no matches", async () => {
+    const mock = createMockFundsClient({
+      data: [],
+      count: 0,
+      error: null
+    });
+    const params = expectValidFundsQuery({
+      min_sharpe_ratio: "2",
+      max_standard_deviation: "5"
+    });
+
+    const result = await queryFunds(mock.client, params);
+
+    expect(result.zeroState?.suggestions).toEqual([
+      {
+        label: "Lower the Sharpe ratio floor",
+        removeFilter: "min_sharpe_ratio"
+      },
+      {
+        label: "Relax the volatility cap",
+        removeFilter: "max_standard_deviation"
+      }
+    ]);
   });
 
   it("throws a sanitized query error instead of exposing Supabase internals", async () => {

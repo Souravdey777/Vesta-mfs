@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ChevronDown, ChevronsUpDown } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { getDefaultSortOrder } from "@/lib/filters";
 import { formatCrores, formatCurrency, formatDate, formatNumber, formatPercent } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { ApplyFiltersInput, FundRow, SortField, SortOrder } from "@/lib/types";
@@ -24,6 +24,9 @@ const sortableColumns: Array<{
   { field: "returns_1y", label: "1Y" },
   { field: "returns_3y", label: "3Y" },
   { field: "returns_5y", label: "5Y" },
+  { field: "rolling_returns_3y", label: "Rolling 3Y" },
+  { field: "sharpe_ratio", label: "Sharpe" },
+  { field: "standard_deviation", label: "Std dev" },
   { field: "rating", label: "Rating" }
 ];
 
@@ -32,7 +35,7 @@ export function FundTable({ funds, onSortChange, sortBy, sortOrder }: FundTableP
 
   function nextSortOrder(field: SortField): SortOrder {
     if (sortBy !== field) {
-      return field === "expense_ratio" ? "asc" : "desc";
+      return getDefaultSortOrder(field);
     }
 
     return sortOrder === "asc" ? "desc" : "asc";
@@ -40,7 +43,7 @@ export function FundTable({ funds, onSortChange, sortBy, sortOrder }: FundTableP
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[920px] border-separate border-spacing-0 text-left text-sm">
+      <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-left text-sm">
         <thead>
           <tr className="border-b border-border text-xs uppercase text-muted-foreground">
             <th className="sticky left-0 z-10 bg-card px-3 py-3 font-medium">Fund</th>
@@ -112,12 +115,15 @@ export function FundTable({ funds, onSortChange, sortBy, sortOrder }: FundTableP
                   <td className="px-3 py-3">{formatPercent(fund.returns_1y)}</td>
                   <td className="px-3 py-3">{formatPercent(fund.returns_3y)}</td>
                   <td className="px-3 py-3">{formatPercent(fund.returns_5y)}</td>
+                  <td className="px-3 py-3">{formatPercent(fund.rolling_returns_3y)}</td>
+                  <td className="px-3 py-3">{formatDecimal(fund.sharpe_ratio)}</td>
+                  <td className="px-3 py-3">{formatPercent(fund.standard_deviation)}</td>
                   <td className="px-3 py-3">{fund.rating ? `${fund.rating}/5` : "-"}</td>
                   <td className="px-3 py-3">{fund.min_sip ? `₹${formatNumber(fund.min_sip)}` : "-"}</td>
                 </tr>
                 {expanded ? (
                   <tr className="border-b border-border bg-muted/40">
-                    <td className="px-3 py-4" colSpan={10}>
+                    <td className="px-3 py-4" colSpan={sortableColumns.length + 4}>
                       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
                         <div className="grid gap-3">
                           <p className="text-sm font-medium text-foreground">Return snapshot</p>
@@ -127,6 +133,10 @@ export function FundTable({ funds, onSortChange, sortBy, sortOrder }: FundTableP
                           </p>
                         </div>
                         <div className="grid gap-2 text-sm">
+                          <div>
+                            <p className="mb-2 font-medium text-foreground">Performance and risk</p>
+                            <AdvancedMetrics fund={fund} />
+                          </div>
                           <p>
                             <span className="font-medium text-foreground">Exit load: </span>
                             <span className="text-muted-foreground">{fund.exit_load ?? "Not available"}</span>
@@ -149,6 +159,28 @@ export function FundTable({ funds, onSortChange, sortBy, sortOrder }: FundTableP
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function AdvancedMetrics({ fund }: { fund: FundRow }) {
+  const metrics = [
+    { label: "Rolling 3Y", value: formatPercent(fund.rolling_returns_3y) },
+    { label: "Sharpe", value: formatDecimal(fund.sharpe_ratio) },
+    { label: "Std dev", value: formatPercent(fund.standard_deviation) },
+    { label: "Beta", value: formatDecimal(fund.beta) },
+    { label: "Upside capture", value: formatPercent(fund.upside_capture_ratio) },
+    { label: "Downside capture", value: formatPercent(fund.downside_capture_ratio) }
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-background p-3 sm:grid-cols-3">
+      {metrics.map((metric) => (
+        <div key={metric.label}>
+          <p className="text-xs text-muted-foreground">{metric.label}</p>
+          <p className="mt-1 font-medium text-foreground">{metric.value}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -186,4 +218,8 @@ function ReturnsBars({ fund }: { fund: FundRow }) {
       })}
     </div>
   );
+}
+
+function formatDecimal(value: number | null | undefined): string {
+  return typeof value === "number" ? value.toFixed(2) : "-";
 }

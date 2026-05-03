@@ -68,7 +68,19 @@
 - [x] Add returns chart placeholder and exit-load details.
 - [x] Add thoughtful empty state with suggested filter relaxation.
 
-## 8. Formatting And UX Polish
+## 8. Advanced Metrics
+
+- [x] Add nullable Supabase columns for rolling returns, Sharpe, standard deviation, beta, upside capture, and downside capture.
+- [x] Add advanced metric fixture values to `data/enriched-funds.seed.json`.
+- [x] Expand the AMFI sample fixture to 20+ demo funds across core categories.
+- [x] Upsert advanced enrichment fields during seed and cron ingestion.
+- [x] Add actual mfdata.in enrichment for covered schemes.
+- [x] Add advanced metric filters and sorting to `/api/funds`.
+- [x] Extend chat tool schemas and metric explanations.
+- [x] Render advanced performance/risk metrics in expanded fund rows.
+- [x] Document actual-source coverage and leave unavailable metrics null.
+
+## 9. Formatting And UX Polish
 
 - [ ] Format Indian currency, crores, lakhs, and percentages consistently.
 - [ ] Keep chat responses to two to four sentences.
@@ -77,7 +89,7 @@
 - [ ] Add loading, error, and zero-result states.
 - [ ] Verify responsive layout for desktop and mobile.
 
-## 9. Tests
+## 10. Tests
 
 - [x] Unit test filter reducer for every tool shape.
 - [x] Cover additive filters, `replace: true`, and conflicting sorts.
@@ -89,7 +101,7 @@
 - [x] Add Playwright happy path for large-cap funds with 3-year returns over 15%.
 - [x] Add prompt-safety test for "best HDFC fund right now".
 
-## 10. Deployment
+## 11. Deployment
 
 - [ ] Configure Vercel project.
 - [ ] Add Supabase env vars to Vercel.
@@ -99,7 +111,7 @@
 - [ ] Add deployed URL to README.
 - [ ] Run final build and test suite before submission.
 
-## 11. Do Not Build
+## 12. Do Not Build
 
 - [ ] Do not add brokerage integration.
 - [ ] Do not add portfolio tracking.

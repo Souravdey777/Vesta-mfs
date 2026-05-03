@@ -63,6 +63,40 @@ describe("filter helpers", () => {
     });
   });
 
+  it("defaults lower-is-better advanced metric sort order", () => {
+    expect(
+      applyFilters(
+        {},
+        {
+          sort_by: "standard_deviation"
+        }
+      )
+    ).toEqual({
+      sort_by: "standard_deviation",
+      order: "asc"
+    });
+  });
+
+  it("normalizes advanced metric filters", () => {
+    expect(
+      normalizeFilterState({
+        min_rolling_returns_3y: 15,
+        min_sharpe_ratio: 1,
+        max_standard_deviation: 12,
+        max_beta: 0.9,
+        min_upside_capture_ratio: 95,
+        max_downside_capture_ratio: 80
+      })
+    ).toEqual({
+      min_rolling_returns_3y: 15,
+      min_sharpe_ratio: 1,
+      max_standard_deviation: 12,
+      max_beta: 0.9,
+      min_upside_capture_ratio: 95,
+      max_downside_capture_ratio: 80
+    });
+  });
+
   it("clears sort order when removing sort_by", () => {
     expect(
       removeFilter(
