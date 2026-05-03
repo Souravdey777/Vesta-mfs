@@ -96,8 +96,8 @@
 - [x] Unit test Supabase query builder output or RPC params.
 - [x] Unit test saved filters for anonymous localStorage flow.
 - [x] Unit test saved filters for logged-in Supabase flow with mocked client.
-- [ ] Add RLS smoke test or documented SQL verification for `public.saved_filters`.
-- [ ] Add seed dry-run test to prevent duplicate fund rows.
+- [x] Add RLS smoke test or documented SQL verification for `public.saved_filters`.
+- [x] Add seed dry-run test to prevent duplicate fund rows.
 - [x] Add Playwright happy path for large-cap funds with 3-year returns over 15%.
 - [x] Add prompt-safety test for "best HDFC fund right now".
 

@@ -141,6 +141,25 @@ SUPABASE_DB_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5
 
 Do not commit the database URL. It contains the database password.
 
+Verify saved-filter RLS in the Supabase SQL Editor:
+
+```sql
+select
+  c.relrowsecurity as rls_enabled,
+  p.polname,
+  p.polcmd,
+  pg_get_expr(p.polqual, p.polrelid) as using_expression,
+  pg_get_expr(p.polwithcheck, p.polrelid) as check_expression
+from pg_policy p
+join pg_class c on c.oid = p.polrelid
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relname = 'saved_filters'
+order by p.polname;
+```
+
+`rls_enabled` should be true, and every saved-filter policy should restrict access with `auth.uid() = user_id`.
+
 ### 3. Configure Auth
 
 In Supabase Auth settings:
