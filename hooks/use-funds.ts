@@ -22,7 +22,12 @@ export type UseFundsResult = {
   data: FundsQueryData | null;
   error: string | null;
   refetch: () => void;
+  setPage: (page: number) => void;
   status: "idle" | "loading" | "success" | "error";
+};
+
+type BuildFundsQueryStringOptions = {
+  page?: number;
 };
 
 export function useFunds(
@@ -37,9 +42,15 @@ export function useFunds(
 ): UseFundsResult {
   const [data, setData] = React.useState<FundsQueryData | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const filtersKey = React.useMemo(() => JSON.stringify(filters), [filters]);
+  const [pagination, setPagination] = React.useState(() => ({
+    filtersKey,
+    page: 1
+  }));
+  const page = pagination.filtersKey === filtersKey ? pagination.page : 1;
   const [status, setStatus] = React.useState<UseFundsResult["status"]>("idle");
   const [refreshIndex, setRefreshIndex] = React.useState(0);
-  const queryString = React.useMemo(() => buildFundsQueryString(filters), [filters]);
+  const queryString = React.useMemo(() => buildFundsQueryString(filters, { page }), [filters, page]);
 
   React.useEffect(() => {
     if (!enabled || !queryString) {
@@ -89,15 +100,35 @@ export function useFunds(
     setRefreshIndex((current) => current + 1);
   }, []);
 
+  const setPage = React.useCallback(
+    (nextPage: number) => {
+      setPagination({
+        filtersKey,
+        page: normalizePage(nextPage)
+      });
+    },
+    [filtersKey]
+  );
+
+  React.useEffect(() => {
+    if (data && data.pageCount > 0 && page > data.pageCount) {
+      setPage(data.pageCount);
+    }
+  }, [data, page, setPage]);
+
   return {
     data,
     error,
     refetch,
+    setPage,
     status
   };
 }
 
-export function buildFundsQueryString(filters: FilterState): string {
+export function buildFundsQueryString(
+  filters: FilterState,
+  { page = 1 }: BuildFundsQueryStringOptions = {}
+): string {
   const params = new URLSearchParams();
 
   for (const [key, value] of Object.entries(filters)) {
@@ -106,8 +137,12 @@ export function buildFundsQueryString(filters: FilterState): string {
     }
   }
 
-  params.set("page", "1");
+  params.set("page", String(normalizePage(page)));
   params.set("pageSize", String(filters.limit ?? 25));
 
   return params.toString();
+}
+
+function normalizePage(page: number): number {
+  return Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
 }

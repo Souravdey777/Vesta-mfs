@@ -25,4 +25,20 @@ describe("funds hook helpers", () => {
       })
     ).toBe("category=Large+Cap&limit=5&sort_by=returns_3y&order=desc&page=1&pageSize=5");
   });
+
+  it("includes the requested page in query params", () => {
+    expect(
+      buildFundsQueryString(
+        {
+          category: "Large Cap",
+          limit: 5,
+          sort_by: "returns_3y",
+          order: "desc"
+        },
+        {
+          page: 2
+        }
+      )
+    ).toBe("category=Large+Cap&limit=5&sort_by=returns_3y&order=desc&page=2&pageSize=5");
+  });
 });

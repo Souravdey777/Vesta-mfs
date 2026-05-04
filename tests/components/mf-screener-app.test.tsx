@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getRefinementSuggestions } from "@/components/chat-panel";
 import { ChatAuthCta, type AuthSupabaseClient } from "@/components/chat-auth-cta";
 import { FilterChips } from "@/components/filter-chips";
 import { FundResults } from "@/components/fund-results";
@@ -18,6 +19,33 @@ describe("MF Screener UI", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("opens the data-first screening details modal", () => {
+    render(<MfScreenerApp />);
+
+    fireEvent.click(screen.getByRole("button", { name: /data-first screening/i }));
+
+    expect(
+      screen.getByRole("dialog", {
+        name: /data-first screening/i
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("How screening works")).toBeInTheDocument();
+    expect(screen.getByText("Data sources")).toBeInTheDocument();
+    expect(screen.getByText(/Fund names and figures come from the table/i)).toBeInTheDocument();
+    expect(screen.getByText(/NAV data is seeded from AMFI/i)).toBeInTheDocument();
+  });
+
+  it("suggests refinements for a tax-saving starter screen", () => {
+    expect(
+      getRefinementSuggestions({
+        category: "ELSS",
+        min_returns_3y: 12,
+        order: "desc",
+        sort_by: "returns_3y"
+      }).map((suggestion) => suggestion.label)
+    ).toEqual(["Direct ELSS plans", "Expense under 1%", "5Y consistency", "Sharpe above 1"]);
   });
 
   it("submits starter prompts, streams text, executes tool calls, and renders fund rows", async () => {
@@ -83,6 +111,12 @@ describe("MF Screener UI", () => {
         min_returns_3y: 15
       })
     );
+    expect(
+      await screen.findByRole("button", { name: "Refine filters: Direct plans only" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Refine filters: Expense under 1%" })
+    ).toBeInTheDocument();
     expect(await screen.findByText("HDFC Large Cap Direct Growth")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/api/chat"),
@@ -128,7 +162,7 @@ describe("MF Screener UI", () => {
     expect(screen.getByText("₹15,000.00 Cr")).toBeInTheDocument();
     expect(screen.getByText("₹500")).toBeInTheDocument();
     expect(screen.getByText("Vs cat.")).toBeInTheDocument();
-    expect(screen.getByText("+1.4pp")).toBeInTheDocument();
+    expect(screen.getByText("+1.4%")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("HDFC Large Cap Direct Growth"));
 
@@ -144,7 +178,7 @@ describe("MF Screener UI", () => {
     expect(screen.getByText("Vs category median")).toBeInTheDocument();
     expect(screen.getByText("Direct Large Cap peer median · 3 funds")).toBeInTheDocument();
     expect(screen.getByText("+0.10")).toBeInTheDocument();
-    expect(screen.getByText("-0.1pp")).toBeInTheDocument();
+    expect(screen.getByText("-0.1%")).toBeInTheDocument();
     expect(screen.getByText("1% if redeemed within 1 year")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -156,13 +190,13 @@ describe("MF Screener UI", () => {
       ).not.toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /^3Y$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^3Y\b/i }));
     expect(onSortChange).toHaveBeenCalledWith({
       sort_by: "returns_3y",
       order: "desc"
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Expense$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Expense\b/i }));
     expect(onSortChange).toHaveBeenCalledWith({
       sort_by: "expense_ratio",
       order: "asc"
@@ -176,6 +210,73 @@ describe("MF Screener UI", () => {
 
     expect(screen.getByText("Vs cat.")).toBeInTheDocument();
     expect(within(screen.getByTestId("fund-row")).getByText("-")).toBeInTheDocument();
+  });
+
+  it("renders a preview table for the empty first-run results state", () => {
+    render(
+      <FundResults
+        fundsResult={{
+          data: null,
+          error: null,
+          refetch: vi.fn(),
+          setPage: vi.fn(),
+          status: "idle"
+        }}
+        showSavedFilters={false}
+      />
+    );
+
+    const previewTable = screen.getByRole("table", {
+      name: "Fund results preview"
+    });
+
+    expect(screen.getByText("No fund screen yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Ask a question in chat or pick a saved filter to load matching mutual funds here."
+      )
+    ).toBeInTheDocument();
+    for (const header of ["Fund", "Category", "AUM", "Expense", "3Y"]) {
+      expect(within(previewTable).getByText(header)).toBeInTheDocument();
+    }
+    expect(screen.queryAllByTestId("fund-row")).toHaveLength(0);
+  });
+
+  it("renders pagination controls for paged fund results", () => {
+    const setPage = vi.fn();
+    useFiltersStore.getState().applyFilters({
+      category: "Large Cap",
+      limit: 1
+    });
+
+    render(
+      <FundResults
+        fundsResult={{
+          data: {
+            ...createFundsData([sampleFund], {
+              category: "Large Cap",
+              limit: 1
+            }),
+            page: 1,
+            pageCount: 2,
+            pageSize: 1,
+            total: 2
+          },
+          error: null,
+          refetch: vi.fn(),
+          setPage,
+          status: "success"
+        }}
+        showSavedFilters={false}
+      />
+    );
+
+    expect(screen.getByText("1-1 of 2 funds")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(setPage).toHaveBeenCalledWith(2);
   });
 
   it("renders zero-state relaxation buttons that remove filters", () => {
@@ -202,6 +303,7 @@ describe("MF Screener UI", () => {
           }),
           error: null,
           refetch: vi.fn(),
+          setPage: vi.fn(),
           status: "success"
         }}
         showSavedFilters={false}
@@ -227,6 +329,7 @@ describe("MF Screener UI", () => {
           data: null,
           error: null,
           refetch: retry,
+          setPage: vi.fn(),
           status: "loading"
         }}
         showSavedFilters={false}
@@ -241,6 +344,7 @@ describe("MF Screener UI", () => {
           data: null,
           error: "Unable to load funds right now.",
           refetch: retry,
+          setPage: vi.fn(),
           status: "error"
         }}
         showSavedFilters={false}
@@ -276,6 +380,7 @@ describe("MF Screener UI", () => {
           }),
           error: null,
           refetch: vi.fn(),
+          setPage: vi.fn(),
           status: "success"
         }}
         showSavedFilters={false}
@@ -306,6 +411,7 @@ describe("MF Screener UI", () => {
           }),
           error: null,
           refetch: vi.fn(),
+          setPage: vi.fn(),
           status: "success"
         }}
         showSavedFilters={false}

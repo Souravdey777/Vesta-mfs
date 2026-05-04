@@ -6,6 +6,14 @@ import { ShieldCheck } from "lucide-react";
 import { ChatPanel } from "@/components/chat-panel";
 import { FundResults } from "@/components/fund-results";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { useChatController } from "@/hooks/use-chat-controller";
 import { useFunds } from "@/hooks/use-funds";
 import { useFiltersStore } from "@/lib/store/filters";
@@ -43,8 +51,8 @@ export function MfScreenerApp() {
   );
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="flex min-h-screen w-full flex-col px-3 py-3 sm:px-4 lg:px-6">
+    <main className="min-h-screen bg-background lg:h-screen lg:max-h-screen lg:overflow-hidden">
+      <div className="flex min-h-screen w-full flex-col px-3 py-3 sm:px-4 lg:h-full lg:min-h-0 lg:px-6">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3">
           <div>
             <p className="text-sm font-medium text-muted-foreground">MF Screener AI</p>
@@ -52,10 +60,41 @@ export function MfScreenerApp() {
               Conversational mutual fund screening
             </h1>
           </div>
-          <Button size="sm" variant="secondary">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Data-first screening
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="secondary">
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                Data-first screening
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Data-first screening</DialogTitle>
+                <DialogDescription>
+                  The assistant turns plain-language requests into structured filters, then the
+                  results table shows the matching funds and metrics.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 text-sm leading-6 text-foreground">
+                <section className="space-y-1">
+                  <h2 className="font-medium">How screening works</h2>
+                  <p className="text-muted-foreground">
+                    Chat responses apply filter changes such as category, returns, expense ratio,
+                    risk metrics, plan type, fund house, and sorting. Fund names and figures come
+                    from the table, not from model memory.
+                  </p>
+                </section>
+                <section className="space-y-1">
+                  <h2 className="font-medium">Data sources</h2>
+                  <p className="text-muted-foreground">
+                    The app reads screening rows from Supabase through the funds API. NAV data is
+                    seeded from AMFI, with available AUM, expense, return, risk, minimum SIP, and
+                    exit-load enrichment joined during ingestion.
+                  </p>
+                </section>
+              </div>
+            </DialogContent>
+          </Dialog>
         </header>
 
         <div className="grid grid-cols-2 gap-2 py-3 lg:hidden">
@@ -85,17 +124,18 @@ export function MfScreenerApp() {
           </button>
         </div>
 
-        <section className="grid flex-1 gap-4 py-3 lg:grid-cols-[minmax(280px,1fr)_minmax(0,4fr)]">
-          <div className={cn(mobileView !== "chat" && "hidden lg:block")}>
+        <section className="grid flex-1 gap-4 py-3 lg:min-h-0 lg:grid-cols-[minmax(280px,1fr)_minmax(0,4fr)]">
+          <div className={cn("lg:min-h-0", mobileView !== "chat" && "hidden lg:block")}>
             <ChatPanel
               chat={chat}
+              filters={filters}
               hasActiveFilters={hasActiveFilters}
               onShowResults={() => setMobileView("results")}
               onStarterPrompt={submitStarterPrompt}
               starterPrompts={starterPrompts}
             />
           </div>
-          <div className={cn(mobileView !== "results" && "hidden lg:block")}>
+          <div className={cn("lg:min-h-0", mobileView !== "results" && "hidden lg:block")}>
             <FundResults fundsResult={fundsResult} />
           </div>
         </section>

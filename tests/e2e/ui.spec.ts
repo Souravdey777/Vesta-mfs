@@ -106,8 +106,19 @@ test("screens large-cap funds from chat and updates the table", async ({ page })
   await expect(page.getByText("HDFC Large Cap Direct Growth")).toBeVisible();
   await expect(page.getByTestId("fund-row")).toContainText("₹15,000.00 Cr");
   await expect(page.getByTestId("fund-row")).toContainText("16.40%");
-  await expect(page.getByTestId("fund-row")).toContainText("+1.4pp");
+  await expect(page.getByTestId("fund-row")).toContainText("+1.4%");
   await expect(page.getByTestId("fund-row")).toContainText("₹500");
+
+  await page.getByRole("button", { name: /^AUM$/ }).hover();
+  await expect(
+    page.locator('[role="tooltip"]').filter({ hasText: "Assets under management, shown in crores." })
+  ).toBeVisible();
+
+  await page.getByText("HDFC Large Cap Direct Growth").click();
+  await page.getByRole("dialog").getByText("AUM").hover();
+  await expect(
+    page.locator('[role="tooltip"]').filter({ hasText: "Assets under management, shown in crores." }).last()
+  ).toBeVisible();
 });
 
 test("mobile chat can switch to filtered results", async ({ page }) => {
