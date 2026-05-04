@@ -8,6 +8,7 @@ describe("chat prompt and tool definitions", () => {
   it("contains the canonical safety and UX rules", () => {
     expect(MF_SCREENER_SYSTEM_PROMPT).toContain("Never type specific scheme or fund names");
     expect(MF_SCREENER_SYSTEM_PROMPT).toContain("translate it into apply_filters");
+    expect(MF_SCREENER_SYSTEM_PROMPT).toContain("top N");
     expect(MF_SCREENER_SYSTEM_PROMPT).toContain("Every chat response must be two to four sentences");
     expect(MF_SCREENER_SYSTEM_PROMPT).toContain("Do not give tax or investment advice");
   });
@@ -37,6 +38,9 @@ describe("chat prompt and tool definitions", () => {
     expect(applyFilters?.input_schema.properties.order).toMatchObject({
       enum: SORT_ORDERS
     });
+    expect(applyFilters?.input_schema.properties.limit).toMatchObject({
+      type: "integer"
+    });
     expect(explainMetric?.input_schema.properties.metric).toMatchObject({
       enum: METRIC_NAMES
     });
@@ -49,6 +53,7 @@ describe("chat prompt and tool definitions", () => {
         min_returns_3y: 15,
         min_sharpe_ratio: 1,
         max_standard_deviation: 15,
+        limit: 5,
         sort_by: "sharpe_ratio"
       })
     ).toMatchObject({
@@ -61,6 +66,7 @@ describe("chat prompt and tool definitions", () => {
           min_returns_3y: 15,
           min_sharpe_ratio: 1,
           max_standard_deviation: 15,
+          limit: 5,
           sort_by: "sharpe_ratio"
         }
       }
@@ -71,6 +77,10 @@ describe("chat prompt and tool definitions", () => {
       error: "Invalid tool call."
     });
     expect(parseChatToolCall("toolu_3", "apply_filters", { category: "Liquid" })).toEqual({
+      ok: false,
+      error: "Invalid tool input."
+    });
+    expect(parseChatToolCall("toolu_4", "apply_filters", { limit: 101 })).toEqual({
       ok: false,
       error: "Invalid tool input."
     });

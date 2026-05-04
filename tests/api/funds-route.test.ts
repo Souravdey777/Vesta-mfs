@@ -47,7 +47,7 @@ describe("funds route", () => {
 
   it("returns paged funds from Supabase", async () => {
     const response = await getFundsResponse(
-      new Request("http://localhost/api/funds?category=Large+Cap&min_returns_3y=15&pageSize=10"),
+      new Request("http://localhost/api/funds?category=Large+Cap&min_returns_3y=15&limit=5&pageSize=10"),
       {
         supabase: createMockFundsClient({
           data: [SAMPLE_FUND],
@@ -66,14 +66,23 @@ describe("funds route", () => {
     expect(body).toMatchObject({
       ok: true,
       data: {
+        categoryBenchmarks: [
+          expect.objectContaining({
+            category: "Large Cap",
+            fundCount: 1,
+            plan_type: "Direct",
+            returns_3y: 16.4
+          })
+        ],
         funds: [SAMPLE_FUND],
         total: 1,
         page: 1,
-        pageSize: 10,
+        pageSize: 5,
         pageCount: 1,
         filters: {
           category: "Large Cap",
-          min_returns_3y: 15
+          min_returns_3y: 15,
+          limit: 5
         },
         zeroState: null
       }
@@ -145,7 +154,15 @@ function createMockFundsClient(result: {
   count: number | null;
   error: { message: string } | null;
 }): FundsSupabaseClient {
-  class MockFundsQueryBuilder implements FundsQueryBuilder {
+  class MockFundsQueryBuilder<Row> implements FundsQueryBuilder<Row> {
+    constructor(
+      private readonly queryResult: {
+        data: Row[] | null;
+        count: number | null;
+        error: { message: string } | null;
+      }
+    ) {}
+
     eq() {
       return this;
     }
@@ -167,13 +184,18 @@ function createMockFundsClient(result: {
     }
 
     async range() {
-      return result;
+      return this.queryResult;
     }
   }
 
   return {
     from: () => ({
-      select: () => new MockFundsQueryBuilder()
+      select: <Row = FundRow>() =>
+        new MockFundsQueryBuilder<Row>({
+          count: result.count,
+          data: result.data as Row[] | null,
+          error: result.error
+        })
     })
   };
 }

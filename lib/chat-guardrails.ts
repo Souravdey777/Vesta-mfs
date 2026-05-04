@@ -86,6 +86,85 @@ export function guardAssistantText(text: string): ChatGuardrailResult {
   };
 }
 
+export function guardAssistantStreamingText(text: string): ChatGuardrailResult {
+  const normalizedText = normalizeWhitespace(text);
+
+  if (!normalizedText) {
+    return {
+      changed: false,
+      reason: null,
+      text: ""
+    };
+  }
+
+  if (containsAdvice(normalizedText)) {
+    return {
+      changed: true,
+      reason: "advice",
+      text: SAFE_ADVICE_FALLBACK
+    };
+  }
+
+  if (containsGeneratedFundName(normalizedText)) {
+    return {
+      changed: true,
+      reason: "fund_name",
+      text: SAFE_FUND_NAME_FALLBACK
+    };
+  }
+
+  const sentences = splitSentences(normalizedText);
+
+  if (sentences.length > 4) {
+    return {
+      changed: true,
+      reason: "sentence_count",
+      text: sentences.slice(0, 4).join(" ")
+    };
+  }
+
+  return {
+    changed: false,
+    reason: null,
+    text: normalizedText
+  };
+}
+
+export function guardAssistantStructuredText(text: string): ChatGuardrailResult {
+  const structuredText = normalizeStructuredWhitespace(text);
+  const scanText = normalizeWhitespace(structuredText);
+
+  if (!scanText) {
+    return {
+      changed: false,
+      reason: null,
+      text: ""
+    };
+  }
+
+  if (containsAdvice(scanText)) {
+    return {
+      changed: true,
+      reason: "advice",
+      text: SAFE_ADVICE_FALLBACK
+    };
+  }
+
+  if (containsGeneratedFundName(scanText)) {
+    return {
+      changed: true,
+      reason: "fund_name",
+      text: SAFE_FUND_NAME_FALLBACK
+    };
+  }
+
+  return {
+    changed: structuredText !== text.trim(),
+    reason: null,
+    text: structuredText
+  };
+}
+
 function containsAdvice(text: string): boolean {
   return ADVICE_PATTERNS.some((pattern) => pattern.test(text));
 }
@@ -122,4 +201,14 @@ function ensureTerminalPunctuation(text: string): string {
 
 function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+function normalizeStructuredWhitespace(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }

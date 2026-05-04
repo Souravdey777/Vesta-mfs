@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChatAuthCta, type AuthSupabaseClient } from "@/components/chat-auth-cta";
@@ -8,7 +8,7 @@ import { FundTable } from "@/components/fund-table";
 import { MfScreenerApp } from "@/components/mf-screener-app";
 import type { UseFundsResult } from "@/hooks/use-funds";
 import { resetFiltersStoreForTests, useFiltersStore } from "@/lib/store/filters";
-import type { FundRow, FundsQueryData } from "@/lib/types";
+import type { CategoryBenchmark, FundRow, FundsQueryData } from "@/lib/types";
 
 describe("MF Screener UI", () => {
   beforeEach(() => {
@@ -51,12 +51,17 @@ describe("MF Screener UI", () => {
       if (url.includes("/api/funds")) {
         return Response.json({
           ok: true,
-          data: createFundsData([sampleFund], {
-            category: "Large Cap",
-            min_returns_3y: 15,
-            sort_by: "returns_3y",
-            order: "desc"
-          })
+          data: createFundsData(
+            [sampleFund],
+            {
+              category: "Large Cap",
+              min_returns_3y: 15,
+              sort_by: "returns_3y",
+              order: "desc"
+            },
+            null,
+            [sampleCategoryBenchmark]
+          )
         });
       }
 
@@ -67,7 +72,11 @@ describe("MF Screener UI", () => {
     render(<MfScreenerApp />);
     fireEvent.click(screen.getByText("Large cap funds with >15% 3-year returns"));
 
-    expect(await screen.findByText(/I filtered for large-cap funds/i)).toBeInTheDocument();
+    expect(await screen.findByText("Applied filters")).toBeInTheDocument();
+    expect(screen.getByText("Category: Large Cap")).toBeInTheDocument();
+    expect(screen.getByText("3Y returns >= 15.00%")).toBeInTheDocument();
+    expect(await screen.findByText("Why these filters")).toBeInTheDocument();
+    expect(await screen.findByText(/category narrows the universe/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(useFiltersStore.getState().filters).toMatchObject({
         category: "Large Cap",
@@ -105,21 +114,47 @@ describe("MF Screener UI", () => {
     expect(clearFilters).toHaveBeenCalled();
   });
 
-  it("expands fund rows with returns chart and exit-load details", () => {
+  it("opens fund details in a drawer and keeps table sorting available after close", async () => {
     const onSortChange = vi.fn();
 
-    render(<FundTable funds={[sampleFund]} onSortChange={onSortChange} />);
+    render(
+      <FundTable
+        categoryBenchmarks={[sampleCategoryBenchmark]}
+        funds={[sampleFund]}
+        onSortChange={onSortChange}
+      />
+    );
     expect(screen.getByText("₹123.45")).toBeInTheDocument();
     expect(screen.getByText("₹15,000.00 Cr")).toBeInTheDocument();
     expect(screen.getByText("₹500")).toBeInTheDocument();
+    expect(screen.getByText("Vs cat.")).toBeInTheDocument();
+    expect(screen.getByText("+1.4pp")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("HDFC Large Cap Direct Growth"));
 
+    expect(
+      screen.getByRole("dialog", {
+        name: "HDFC Large Cap Direct Growth"
+      })
+    ).toBeInTheDocument();
     expect(screen.getByText("Return snapshot")).toBeInTheDocument();
     expect(screen.getByText("Performance and risk")).toBeInTheDocument();
     expect(screen.getAllByText("Sharpe").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.05").length).toBeGreaterThan(0);
+    expect(screen.getByText("Vs category median")).toBeInTheDocument();
+    expect(screen.getByText("Direct Large Cap peer median · 3 funds")).toBeInTheDocument();
+    expect(screen.getByText("+0.10")).toBeInTheDocument();
+    expect(screen.getByText("-0.1pp")).toBeInTheDocument();
     expect(screen.getByText("1% if redeemed within 1 year")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", {
+          name: "HDFC Large Cap Direct Growth"
+        })
+      ).not.toBeInTheDocument()
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /^3Y$/i }));
     expect(onSortChange).toHaveBeenCalledWith({
@@ -127,11 +162,20 @@ describe("MF Screener UI", () => {
       order: "desc"
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Std dev$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Expense$/i }));
     expect(onSortChange).toHaveBeenCalledWith({
-      sort_by: "standard_deviation",
+      sort_by: "expense_ratio",
       order: "asc"
     });
+  });
+
+  it("renders a benchmark fallback when peer data is missing", () => {
+    const onSortChange = vi.fn();
+
+    render(<FundTable funds={[sampleFund]} onSortChange={onSortChange} />);
+
+    expect(screen.getByText("Vs cat.")).toBeInTheDocument();
+    expect(within(screen.getByTestId("fund-row")).getByText("-")).toBeInTheDocument();
   });
 
   it("renders zero-state relaxation buttons that remove filters", () => {
@@ -370,12 +414,27 @@ const sampleFund: FundRow = {
   updated_at: "2026-05-01T00:00:00.000Z"
 };
 
+const sampleCategoryBenchmark: CategoryBenchmark = {
+  category: "Large Cap",
+  expense_ratio: 0.82,
+  fundCount: 3,
+  plan_type: "Direct",
+  returns_1y: 17,
+  returns_3y: 15,
+  returns_5y: 13.4,
+  rolling_returns_3y: 14.8,
+  sharpe_ratio: 0.95,
+  standard_deviation: 13.1
+};
+
 function createFundsData(
   funds: FundRow[],
   filters: FundsQueryData["filters"],
-  zeroState: FundsQueryData["zeroState"] = null
+  zeroState: FundsQueryData["zeroState"] = null,
+  categoryBenchmarks: CategoryBenchmark[] = []
 ): FundsQueryData {
   return {
+    categoryBenchmarks,
     funds,
     filters,
     page: 1,

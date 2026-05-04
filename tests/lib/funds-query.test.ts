@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCategoryBenchmarks,
+  calculateMedian,
   parseFundsQuery,
   queryFunds,
+  type CategoryBenchmarkPeerRow,
   type FundsQueryBuilder,
   type FundsQueryParams,
   type FundsSupabaseClient,
@@ -114,6 +117,27 @@ describe("funds query parsing", () => {
     expect(issues.map((issue) => issue.path)).toEqual(expect.arrayContaining(["page", "pageSize"]));
   });
 
+  it("uses limit as the effective page size", () => {
+    const params = expectValidFundsQuery({
+      limit: "5",
+      pageSize: "25",
+      sort_by: "returns_3y"
+    });
+
+    expect(params.filters).toMatchObject({
+      limit: 5,
+      sort_by: "returns_3y"
+    });
+    expect(params.pageSize).toBe(5);
+
+    const issues = expectInvalidFundsQuery({
+      limit: "101"
+    });
+
+    expect(issues.map((issue) => issue.path)).toContain("limit");
+  });
+
+
   it("defaults expense-ratio sort ascending and broad queries to AUM descending", () => {
     const expenseRatioSort = expectValidFundsQuery({
       sort_by: "expense_ratio"
@@ -147,6 +171,55 @@ describe("funds query parsing", () => {
   });
 });
 
+describe("category benchmarks", () => {
+  it("calculates medians for odd counts, even counts, and null values", () => {
+    expect(calculateMedian([1, 5, 3])).toBe(3);
+    expect(calculateMedian([1, 3, 5, 7])).toBe(4);
+    expect(calculateMedian([null, undefined, 2, 6])).toBe(4);
+    expect(calculateMedian([null, undefined])).toBeNull();
+  });
+
+  it("groups benchmark medians by category and plan type", () => {
+    const benchmarks = buildCategoryBenchmarks([
+      createBenchmarkPeerRow({
+        category: "Large Cap",
+        expense_ratio: 0.7,
+        plan_type: "Direct",
+        returns_3y: 14
+      }),
+      createBenchmarkPeerRow({
+        category: "Large Cap",
+        expense_ratio: 0.9,
+        plan_type: "Direct",
+        returns_3y: 18
+      }),
+      createBenchmarkPeerRow({
+        category: "Large Cap",
+        expense_ratio: 1.4,
+        plan_type: "Regular",
+        returns_3y: 12
+      })
+    ]);
+
+    expect(benchmarks).toEqual([
+      expect.objectContaining({
+        category: "Large Cap",
+        expense_ratio: 0.8,
+        fundCount: 2,
+        plan_type: "Direct",
+        returns_3y: 16
+      }),
+      expect.objectContaining({
+        category: "Large Cap",
+        expense_ratio: 1.4,
+        fundCount: 1,
+        plan_type: "Regular",
+        returns_3y: 12
+      })
+    ]);
+  });
+});
+
 describe("funds Supabase query", () => {
   it("applies filters, deterministic sorting, exact count, and page range", async () => {
     const mock = createMockFundsClient({
@@ -169,6 +242,7 @@ describe("funds Supabase query", () => {
       max_downside_capture_ratio: "85",
       min_rating: "4",
       fund_house: "HDFC",
+      limit: "5",
       plan_type: "Direct",
       sort_by: "aum",
       page: "2",
@@ -178,10 +252,19 @@ describe("funds Supabase query", () => {
     const result = await queryFunds(mock.client, params);
 
     expect(result).toMatchObject({
+      categoryBenchmarks: [
+        expect.objectContaining({
+          category: "Large Cap",
+          expense_ratio: 0.72,
+          fundCount: 1,
+          plan_type: "Direct",
+          returns_3y: 16.4
+        })
+      ],
       funds: [SAMPLE_FUND],
       total: 1,
       page: 2,
-      pageSize: 10,
+      pageSize: 5,
       pageCount: 1,
       zeroState: null
     });
@@ -206,7 +289,12 @@ describe("funds Supabase query", () => {
       "order:aum_cr:desc:nulls_last",
       "order:scheme_name:asc:nulls_last",
       "order:scheme_code:asc:nulls_last",
-      "range:10:19"
+      "range:5:9",
+      "from:funds",
+      "select:exact",
+      "eq:category:Large Cap",
+      "eq:plan_type:Direct",
+      "range:0:499"
     ]);
   });
 
@@ -300,6 +388,23 @@ function expectInvalidFundsQuery(params: Record<string, string>): FundsValidatio
   return parsed.issues;
 }
 
+function createBenchmarkPeerRow(
+  overrides: Partial<CategoryBenchmarkPeerRow>
+): CategoryBenchmarkPeerRow {
+  return {
+    category: "Large Cap",
+    expense_ratio: 0.72,
+    plan_type: "Direct",
+    returns_1y: 12,
+    returns_3y: 16,
+    returns_5y: 14,
+    rolling_returns_3y: 15,
+    sharpe_ratio: 1,
+    standard_deviation: 13,
+    ...overrides
+  };
+}
+
 function createMockFundsClient(result: {
   data: FundRow[] | null;
   count: number | null;
@@ -307,7 +412,15 @@ function createMockFundsClient(result: {
 }) {
   const calls: string[] = [];
 
-  class MockFundsQueryBuilder implements FundsQueryBuilder {
+  class MockFundsQueryBuilder<Row> implements FundsQueryBuilder<Row> {
+    constructor(
+      private readonly queryResult: {
+        data: Row[] | null;
+        count: number | null;
+        error: { message: string } | null;
+      }
+    ) {}
+
     eq(column: string, value: string | number) {
       calls.push(`eq:${column}:${value}`);
       return this;
@@ -339,7 +452,7 @@ function createMockFundsClient(result: {
 
     async range(from: number, to: number) {
       calls.push(`range:${from}:${to}`);
-      return result;
+      return this.queryResult;
     }
   }
 
@@ -348,9 +461,13 @@ function createMockFundsClient(result: {
       calls.push(`from:${table}`);
 
       return {
-        select: (_columns, options) => {
+        select: <Row = FundRow>(_columns: string, options: { count: "exact" }) => {
           calls.push(`select:${options.count}`);
-          return new MockFundsQueryBuilder();
+          return new MockFundsQueryBuilder<Row>({
+            count: result.count,
+            data: result.data as Row[] | null,
+            error: result.error
+          });
         }
       };
     }

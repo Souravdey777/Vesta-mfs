@@ -27,6 +27,8 @@ export const SORT_FIELDS = [
 ] as const;
 export const SORT_ORDERS = ["asc", "desc"] as const;
 export const RATINGS = [1, 2, 3, 4, 5] as const;
+export const MIN_RESULT_LIMIT = 1;
+export const MAX_RESULT_LIMIT = 100;
 export const METRIC_NAMES = [
   "expense_ratio",
   "aum",
@@ -64,6 +66,7 @@ export type FilterState = {
   max_downside_capture_ratio?: number;
   min_rating?: Rating;
   fund_house?: string;
+  limit?: number;
   plan_type?: PlanType;
   sort_by?: SortField;
   order?: SortOrder;
@@ -96,6 +99,19 @@ export type FundRow = {
   updated_at: string;
 };
 
+export type CategoryBenchmark = {
+  category: FundCategory;
+  plan_type: PlanType;
+  fundCount: number;
+  returns_1y: number | null;
+  returns_3y: number | null;
+  returns_5y: number | null;
+  rolling_returns_3y: number | null;
+  sharpe_ratio: number | null;
+  standard_deviation: number | null;
+  expense_ratio: number | null;
+};
+
 export type FundsZeroState = {
   reason: "no_matches";
   message: string;
@@ -107,6 +123,7 @@ export type FundsZeroState = {
 
 export type FundsQueryData = {
   funds: FundRow[];
+  categoryBenchmarks: CategoryBenchmark[];
   total: number;
   page: number;
   pageSize: number;

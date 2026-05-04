@@ -97,6 +97,16 @@ describe("filter helpers", () => {
     });
   });
 
+  it("normalizes result limits", () => {
+    expect(
+      normalizeFilterState({
+        limit: 5
+      })
+    ).toEqual({
+      limit: 5
+    });
+  });
+
   it("clears sort order when removing sort_by", () => {
     expect(
       removeFilter(
@@ -134,6 +144,7 @@ describe("filter helpers", () => {
     expect(
       normalizeFilterState({
         fund_house: "   ",
+        limit: 101,
         order: "asc",
         min_aum_cr: Number.NaN
       })

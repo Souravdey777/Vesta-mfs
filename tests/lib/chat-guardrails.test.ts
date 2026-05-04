@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { guardAssistantText } from "@/lib/chat-guardrails";
+import {
+  guardAssistantStreamingText,
+  guardAssistantStructuredText,
+  guardAssistantText
+} from "@/lib/chat-guardrails";
 
 describe("chat guardrails", () => {
   it("leaves safe two-sentence filtering copy alone", () => {
@@ -58,5 +62,21 @@ describe("chat guardrails", () => {
       guardAssistantText("I filtered for ELSS Fund screens. Direct Plan rows can appear in the table.")
         .changed
     ).toBe(false);
+  });
+
+  it("does not pad partial streaming text before the final guardrail pass", () => {
+    expect(guardAssistantStreamingText("I am filtering ELSS rows")).toEqual({
+      changed: false,
+      reason: null,
+      text: "I am filtering ELSS rows"
+    });
+  });
+
+  it("preserves structured markdown-like filter summaries", () => {
+    expect(guardAssistantStructuredText("**Applied filters**\n- Category: ELSS")).toEqual({
+      changed: false,
+      reason: null,
+      text: "**Applied filters**\n- Category: ELSS"
+    });
   });
 });

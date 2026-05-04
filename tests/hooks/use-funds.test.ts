@@ -14,4 +14,15 @@ describe("funds hook helpers", () => {
       })
     ).toBe("category=Large+Cap&min_returns_3y=15&min_sharpe_ratio=1&sort_by=returns_3y&order=desc&page=1&pageSize=25");
   });
+
+  it("uses limit as the first-page page size", () => {
+    expect(
+      buildFundsQueryString({
+        category: "Large Cap",
+        limit: 5,
+        sort_by: "returns_3y",
+        order: "desc"
+      })
+    ).toBe("category=Large+Cap&limit=5&sort_by=returns_3y&order=desc&page=1&pageSize=5");
+  });
 });

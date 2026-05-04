@@ -1,5 +1,7 @@
 import {
   FILTER_CATEGORIES,
+  MAX_RESULT_LIMIT,
+  MIN_RESULT_LIMIT,
   PLAN_TYPES,
   RATINGS,
   SORT_FIELDS,
@@ -134,6 +136,10 @@ export function normalizeFilterState(input: Partial<FilterState>): FilterState {
     normalized.fund_house = input.fund_house.trim();
   }
 
+  if (isResultLimit(input.limit)) {
+    normalized.limit = input.limit;
+  }
+
   if (typeof input.plan_type === "string" && PLAN_TYPE_SET.has(input.plan_type)) {
     normalized.plan_type = input.plan_type;
   }
@@ -159,6 +165,15 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isRating(value: unknown): value is Rating {
   return typeof value === "number" && RATING_SET.has(value);
+}
+
+function isResultLimit(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= MIN_RESULT_LIMIT &&
+    value <= MAX_RESULT_LIMIT
+  );
 }
 
 function definedEntries<T extends Record<string, unknown>>(value: T): Partial<T> {

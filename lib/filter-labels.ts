@@ -45,6 +45,13 @@ export function getFilterChips(filters: FilterState): FilterChip[] {
     });
   }
 
+  if (filters.limit !== undefined) {
+    chips.push({
+      key: "limit",
+      label: `Top ${filters.limit}`
+    });
+  }
+
   if (filters.min_aum_cr !== undefined) {
     chips.push({
       key: "min_aum_cr",

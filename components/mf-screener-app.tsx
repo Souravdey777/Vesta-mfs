@@ -44,7 +44,7 @@ export function MfScreenerApp() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-3 py-3 sm:px-4 lg:px-6">
+      <div className="flex min-h-screen w-full flex-col px-3 py-3 sm:px-4 lg:px-6">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3">
           <div>
             <p className="text-sm font-medium text-muted-foreground">MF Screener AI</p>
@@ -85,7 +85,7 @@ export function MfScreenerApp() {
           </button>
         </div>
 
-        <section className="grid flex-1 gap-4 py-3 lg:grid-cols-[minmax(330px,0.78fr)_minmax(0,1.22fr)]">
+        <section className="grid flex-1 gap-4 py-3 lg:grid-cols-[minmax(280px,1fr)_minmax(0,4fr)]">
           <div className={cn(mobileView !== "chat" && "hidden lg:block")}>
             <ChatPanel
               chat={chat}

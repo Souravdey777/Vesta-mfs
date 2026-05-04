@@ -2,7 +2,9 @@ import { z } from "zod";
 
 import {
   FILTER_CATEGORIES,
+  MAX_RESULT_LIMIT,
   METRIC_NAMES,
+  MIN_RESULT_LIMIT,
   PLAN_TYPES,
   RATINGS,
   SORT_FIELDS,
@@ -86,6 +88,13 @@ export const CHAT_TOOL_DEFINITIONS: ChatToolDefinition[] = [
         },
         fund_house: {
           type: "string"
+        },
+        limit: {
+          type: "integer",
+          minimum: MIN_RESULT_LIMIT,
+          maximum: MAX_RESULT_LIMIT,
+          description:
+            "Maximum number of rows to return for top-N requests, e.g. top 5 or show 10. Use with sort_by and order when the user asks for top, highest, lowest, or best."
         },
         plan_type: {
           type: "string",
@@ -182,6 +191,7 @@ const applyFiltersInputSchema = z
     max_downside_capture_ratio: z.number().finite().optional(),
     min_rating: z.enum(["1", "2", "3", "4", "5"]).or(z.number().int().min(1).max(5)).optional(),
     fund_house: z.string().trim().min(1).optional(),
+    limit: z.number().int().min(MIN_RESULT_LIMIT).max(MAX_RESULT_LIMIT).optional(),
     plan_type: z.enum(PLAN_TYPES).optional(),
     sort_by: z.enum(SORT_FIELDS).optional(),
     order: z.enum(SORT_ORDERS).optional(),

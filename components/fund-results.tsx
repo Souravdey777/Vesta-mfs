@@ -30,7 +30,11 @@ export function FundResults({ fundsResult, showSavedFilters = true }: FundResult
           Results
           {fundsResult.data ? (
             <span className="rounded-sm bg-muted px-2 py-0.5 text-xs">
-              {formatNumber(fundsResult.data.total)} funds
+              {filters.limit && fundsResult.data.total > fundsResult.data.funds.length
+                ? `${formatNumber(fundsResult.data.funds.length)} of ${formatNumber(
+                    fundsResult.data.total
+                  )} funds`
+                : `${formatNumber(fundsResult.data.total)} funds`}
             </span>
           ) : null}
         </div>
@@ -140,6 +144,7 @@ export function FundResults({ fundsResult, showSavedFilters = true }: FundResult
 
     return (
       <FundTable
+        categoryBenchmarks={fundsResult.data.categoryBenchmarks}
         funds={fundsResult.data.funds}
         onSortChange={applyFilters}
         sortBy={filters.sort_by}

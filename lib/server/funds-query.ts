@@ -4,14 +4,19 @@ import { z } from "zod";
 import { getDefaultSortOrder } from "@/lib/filters";
 import {
   FILTER_CATEGORIES,
+  MAX_RESULT_LIMIT,
+  MIN_RESULT_LIMIT,
   PLAN_TYPES,
   SORT_FIELDS,
   SORT_ORDERS,
+  type CategoryBenchmark,
   type FilterKey,
   type FilterState,
+  type FundCategory,
   type FundRow,
   type FundsQueryData,
   type FundsZeroState,
+  type PlanType,
   type Rating,
   type SortField,
   type SortOrder
@@ -19,10 +24,23 @@ import {
 
 const FUNDS_SELECT_COLUMNS =
   "scheme_code,scheme_name,fund_house,category,sub_category,plan_type,nav,aum_cr,expense_ratio,returns_1y,returns_3y,returns_5y,rolling_returns_3y,sharpe_ratio,standard_deviation,beta,upside_capture_ratio,downside_capture_ratio,rating,min_sip,exit_load,updated_at";
+const CATEGORY_BENCHMARK_SELECT_COLUMNS =
+  "category,plan_type,expense_ratio,returns_1y,returns_3y,returns_5y,rolling_returns_3y,sharpe_ratio,standard_deviation";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
+const BENCHMARK_PAGE_SIZE = 500;
+
+const CATEGORY_BENCHMARK_METRICS = [
+  "returns_1y",
+  "returns_3y",
+  "returns_5y",
+  "rolling_returns_3y",
+  "sharpe_ratio",
+  "standard_deviation",
+  "expense_ratio"
+] as const;
 
 const SORT_COLUMN_BY_FIELD: Record<SortField, FundsSortColumn> = {
   returns_1y: "returns_1y",
@@ -78,6 +96,10 @@ const fundsQuerySchema = z.object({
     z.coerce.number().int().min(1).max(5).optional()
   ),
   fund_house: z.preprocess(emptyStringToUndefined, z.string().trim().min(1).optional()),
+  limit: z.preprocess(
+    emptyStringToUndefined,
+    z.coerce.number().int().min(MIN_RESULT_LIMIT).max(MAX_RESULT_LIMIT).optional()
+  ),
   plan_type: z.preprocess(emptyStringToUndefined, z.enum(PLAN_TYPES).optional()),
   sort_by: z.preprocess(emptyStringToUndefined, z.enum(SORT_FIELDS).optional()),
   order: z.preprocess(emptyStringToUndefined, z.enum(SORT_ORDERS).optional()),
@@ -117,6 +139,13 @@ export type FundsQueryParams = {
   sort: FundsSort;
 };
 
+export type CategoryBenchmarkMetric = (typeof CATEGORY_BENCHMARK_METRICS)[number];
+
+export type CategoryBenchmarkPeerRow = Pick<
+  FundRow,
+  "category" | "plan_type" | CategoryBenchmarkMetric
+>;
+
 export type FundsValidationIssue = {
   path: string;
   message: string;
@@ -132,23 +161,23 @@ export type FundsQueryParseResult =
       issues: FundsValidationIssue[];
     };
 
-export type FundsQueryBuilder = {
-  eq: (column: string, value: string | number) => FundsQueryBuilder;
-  gte: (column: string, value: number) => FundsQueryBuilder;
-  lte: (column: string, value: number) => FundsQueryBuilder;
-  ilike: (column: string, pattern: string) => FundsQueryBuilder;
+export type FundsQueryBuilder<Row = FundRow> = {
+  eq: (column: string, value: string | number) => FundsQueryBuilder<Row>;
+  gte: (column: string, value: number) => FundsQueryBuilder<Row>;
+  lte: (column: string, value: number) => FundsQueryBuilder<Row>;
+  ilike: (column: string, pattern: string) => FundsQueryBuilder<Row>;
   order: (
     column: string,
     options: {
       ascending: boolean;
       nullsFirst?: boolean;
     }
-  ) => FundsQueryBuilder;
+  ) => FundsQueryBuilder<Row>;
   range: (
     from: number,
     to: number
   ) => Promise<{
-    data: FundRow[] | null;
+    data: Row[] | null;
     count: number | null;
     error: { message: string } | null;
   }>;
@@ -156,12 +185,12 @@ export type FundsQueryBuilder = {
 
 export type FundsSupabaseClient = {
   from: (table: "funds") => {
-    select: (
+    select: <Row = FundRow>(
       columns: string,
       options: {
         count: "exact";
       }
-    ) => FundsQueryBuilder;
+    ) => FundsQueryBuilder<Row>;
   };
 };
 
@@ -208,13 +237,14 @@ export function parseFundsQuery(searchParams: URLSearchParams): FundsQueryParseR
   const data = parsed.data;
   const filters = buildFilterState(data);
   const sort = resolveFundsSort(filters);
+  const pageSize = filters.limit ?? data.pageSize;
 
   return {
     ok: true,
     params: {
       filters,
       page: data.page,
-      pageSize: data.pageSize,
+      pageSize,
       sort
     }
   };
@@ -254,9 +284,11 @@ export async function queryFunds(
 
   const funds = data ?? [];
   const total = count ?? funds.length;
+  const categoryBenchmarks = await queryCategoryBenchmarksForFunds(supabase, funds);
 
   return {
     funds,
+    categoryBenchmarks,
     total,
     page,
     pageSize,
@@ -264,6 +296,139 @@ export async function queryFunds(
     filters,
     zeroState: total === 0 ? buildZeroState(filters) : null
   };
+}
+
+async function queryCategoryBenchmarksForFunds(
+  supabase: FundsSupabaseClient,
+  funds: FundRow[]
+): Promise<CategoryBenchmark[]> {
+  if (funds.length === 0) {
+    return [];
+  }
+
+  const groups = getBenchmarkGroups(funds);
+  const peerRowsByGroup = await Promise.all(
+    groups.map((group) => fetchBenchmarkPeerRows(supabase, group))
+  );
+
+  return buildCategoryBenchmarks(peerRowsByGroup.flat());
+}
+
+async function fetchBenchmarkPeerRows(
+  supabase: FundsSupabaseClient,
+  group: Pick<CategoryBenchmark, "category" | "plan_type">
+): Promise<CategoryBenchmarkPeerRow[]> {
+  const peerRows: CategoryBenchmarkPeerRow[] = [];
+  let from = 0;
+  let total: number | null = null;
+
+  while (total === null || peerRows.length < total) {
+    let query = supabase
+      .from("funds")
+      .select<CategoryBenchmarkPeerRow>(CATEGORY_BENCHMARK_SELECT_COLUMNS, {
+        count: "exact"
+      });
+
+    query = query.eq("category", group.category).eq("plan_type", group.plan_type);
+
+    const to = from + BENCHMARK_PAGE_SIZE - 1;
+    const { data, count, error } = await query.range(from, to);
+
+    if (error) {
+      throw new FundsQueryError("query", "Supabase benchmark query failed.", error);
+    }
+
+    const rows = data ?? [];
+    peerRows.push(...rows);
+    total = count ?? peerRows.length;
+
+    if (rows.length === 0 || rows.length < BENCHMARK_PAGE_SIZE) {
+      break;
+    }
+
+    from += BENCHMARK_PAGE_SIZE;
+  }
+
+  return peerRows;
+}
+
+export function buildCategoryBenchmarks(
+  rows: CategoryBenchmarkPeerRow[]
+): CategoryBenchmark[] {
+  const groups = new Map<string, CategoryBenchmarkPeerRow[]>();
+
+  for (const row of rows) {
+    const key = getBenchmarkKey(row.category, row.plan_type);
+    const group = groups.get(key);
+
+    if (group) {
+      group.push(row);
+    } else {
+      groups.set(key, [row]);
+    }
+  }
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const first = group[0];
+
+      return {
+        category: first.category,
+        plan_type: first.plan_type,
+        fundCount: group.length,
+        returns_1y: calculateMedian(group.map((row) => row.returns_1y)),
+        returns_3y: calculateMedian(group.map((row) => row.returns_3y)),
+        returns_5y: calculateMedian(group.map((row) => row.returns_5y)),
+        rolling_returns_3y: calculateMedian(group.map((row) => row.rolling_returns_3y)),
+        sharpe_ratio: calculateMedian(group.map((row) => row.sharpe_ratio)),
+        standard_deviation: calculateMedian(group.map((row) => row.standard_deviation)),
+        expense_ratio: calculateMedian(group.map((row) => row.expense_ratio))
+      };
+    })
+    .sort((first, second) => {
+      const categoryOrder = first.category.localeCompare(second.category);
+
+      return categoryOrder === 0
+        ? first.plan_type.localeCompare(second.plan_type)
+        : categoryOrder;
+    });
+}
+
+export function calculateMedian(values: Array<number | null | undefined>): number | null {
+  const sortedValues = values
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .sort((first, second) => first - second);
+
+  if (sortedValues.length === 0) {
+    return null;
+  }
+
+  const midpoint = Math.floor(sortedValues.length / 2);
+
+  if (sortedValues.length % 2 === 1) {
+    return sortedValues[midpoint];
+  }
+
+  return (sortedValues[midpoint - 1] + sortedValues[midpoint]) / 2;
+}
+
+function getBenchmarkGroups(
+  funds: FundRow[]
+): Array<Pick<CategoryBenchmark, "category" | "plan_type">> {
+  const groups = new Map<string, Pick<CategoryBenchmark, "category" | "plan_type">>();
+
+  for (const fund of funds) {
+    groups.set(getBenchmarkKey(fund.category, fund.plan_type), {
+      category: fund.category,
+      plan_type: fund.plan_type
+    });
+  }
+
+  return Array.from(groups.values());
+}
+
+function getBenchmarkKey(category: FundCategory, planType: PlanType): string {
+  return `${category}:${planType}`;
 }
 
 function applyFundsFilters(query: FundsQueryBuilder, filters: FilterState): FundsQueryBuilder {
@@ -423,6 +588,10 @@ function buildFilterState(data: z.infer<typeof fundsQuerySchema>): FilterState {
     filters.fund_house = data.fund_house;
   }
 
+  if (data.limit !== undefined) {
+    filters.limit = data.limit;
+  }
+
   if (data.plan_type) {
     filters.plan_type = data.plan_type;
   }
@@ -451,6 +620,7 @@ function readFundsQueryParams(searchParams: URLSearchParams) {
     max_downside_capture_ratio: searchParams.get("max_downside_capture_ratio") ?? undefined,
     min_rating: searchParams.get("min_rating") ?? undefined,
     fund_house: searchParams.get("fund_house") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
     plan_type: searchParams.get("plan_type") ?? undefined,
     sort_by: searchParams.get("sort_by") ?? undefined,
     order: searchParams.get("order") ?? undefined,

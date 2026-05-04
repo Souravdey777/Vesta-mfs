@@ -87,31 +87,54 @@ export function ChatPanel({
               </div>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {chat.messages.map((message) => (
-                <div
-                  className={cn(
-                    "flex",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                  key={message.id}
-                >
+            <div className="grid gap-4" aria-live="polite" aria-relevant="additions text">
+              {chat.messages.map((message) => {
+                const isUserMessage = message.role === "user";
+                const isStreamingMessage = message.status === "streaming";
+
+                return (
                   <div
-                    className={cn(
-                      "max-w-[85%] whitespace-pre-wrap rounded-md px-3 py-2 text-sm leading-6",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground",
-                      message.status === "error" && "bg-destructive/10 text-destructive"
-                    )}
+                    className={cn("flex", isUserMessage ? "justify-end" : "justify-start")}
+                    key={message.id}
                   >
-                    {message.content ||
-                      (message.status === "streaming"
-                        ? "Working on the screen. I will update the results when the filters are ready."
-                        : "")}
+                    <div
+                      className={cn(
+                        "whitespace-pre-wrap text-sm leading-6",
+                        isUserMessage
+                          ? "max-w-[85%] rounded-md bg-primary px-3 py-2 text-primary-foreground"
+                          : "max-w-full flex-1 px-1 py-1 text-foreground",
+                        message.status === "error" &&
+                          "rounded-md bg-destructive/10 px-3 py-2 text-destructive"
+                      )}
+                    >
+                      {message.content ? (
+                        <>
+                          {isUserMessage ? (
+                            message.content
+                          ) : (
+                            <AssistantMessageContent content={message.content} />
+                          )}
+                          {!isUserMessage && isStreamingMessage ? (
+                            <span
+                              className="ml-0.5 inline-block h-4 w-1 translate-y-[2px] animate-pulse rounded-full bg-primary"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                        </>
+                      ) : !isUserMessage && isStreamingMessage ? (
+                        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                          Thinking
+                          <span className="inline-flex gap-1" aria-hidden="true">
+                            <span className="h-1 w-1 animate-pulse rounded-full bg-current" />
+                            <span className="h-1 w-1 animate-pulse rounded-full bg-current [animation-delay:120ms]" />
+                            <span className="h-1 w-1 animate-pulse rounded-full bg-current [animation-delay:240ms]" />
+                          </span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {chat.toolStatus ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -170,5 +193,75 @@ export function ChatPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function AssistantMessageContent({ content }: { content: string }) {
+  const blocks = content.split(/\n{2,}/).filter((block) => block.trim());
+
+  if (blocks.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, blockIndex) => (
+        <AssistantMessageBlock block={block} key={`${block}-${blockIndex}`} />
+      ))}
+    </div>
+  );
+}
+
+function AssistantMessageBlock({ block }: { block: string }) {
+  const lines = block.split("\n").filter((line) => line.trim());
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  if (lines[0]?.trimStart().startsWith("- ")) {
+    return (
+      <ul className="space-y-1">
+        {lines.map((line, index) => (
+          <li className="grid grid-cols-[0.625rem_1fr] gap-2" key={`${line}-${index}`}>
+            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-primary/70" aria-hidden="true" />
+            <span>{line.replace(/^-\s*/, "")}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {lines.map((line, index) => {
+        const trimmedLine = line.trim();
+        const heading = trimmedLine.startsWith("**")
+          ? trimmedLine.replace(/^\*\*/, "").replace(/\*\*$/, "")
+          : null;
+        const note =
+          trimmedLine.startsWith("_") && trimmedLine.endsWith("_")
+            ? trimmedLine.slice(1, -1)
+            : null;
+
+        if (heading) {
+          return (
+            <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground" key={line}>
+              {heading}
+            </p>
+          );
+        }
+
+        if (note) {
+          return (
+            <p className="text-xs text-muted-foreground" key={line}>
+              {note}
+            </p>
+          );
+        }
+
+        return <p key={`${line}-${index}`}>{trimmedLine}</p>;
+      })}
+    </div>
   );
 }

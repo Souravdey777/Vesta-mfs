@@ -7,7 +7,15 @@ import {
   type ChatToolExecutionResult,
   type ChatToolExecutorOptions
 } from "@/lib/chat-tool-executor";
-import { guardAssistantText } from "@/lib/chat-guardrails";
+import {
+  buildAppliedFiltersMessage,
+  buildLoadedFiltersMessage
+} from "@/lib/chat-filter-explanations";
+import {
+  guardAssistantStreamingText,
+  guardAssistantStructuredText,
+  guardAssistantText
+} from "@/lib/chat-guardrails";
 import type { ChatMessage, ChatSseEvent } from "@/lib/types";
 import type { ChatStreamStatus, ChatToolStatus, ChatUiMessage } from "@/lib/ui-types";
 
@@ -15,6 +23,17 @@ type UseChatControllerOptions = ChatToolExecutorOptions & {
   fetcher?: typeof fetch;
   onToolResult?: (result: ChatToolExecutionResult) => void;
 };
+
+type StreamingTextState = {
+  finish?: () => void;
+  status: NonNullable<ChatUiMessage["status"]>;
+  target: string;
+  timeout: ReturnType<typeof setTimeout> | null;
+  visible: string;
+};
+
+const STREAM_TICK_MS = 14;
+const STREAM_CHARS_PER_TICK = 4;
 
 export type UseChatControllerResult = {
   error: string | null;
@@ -36,10 +55,129 @@ export function useChatController({
   const [toolStatus, setToolStatus] = React.useState<ChatToolStatus>(null);
   const [error, setError] = React.useState<string | null>(null);
   const messagesRef = React.useRef<ChatUiMessage[]>([]);
+  const streamingTextRef = React.useRef(new Map<string, StreamingTextState>());
 
   React.useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  const clearStreamingText = React.useCallback(() => {
+    for (const state of streamingTextRef.current.values()) {
+      if (state.timeout) {
+        clearTimeout(state.timeout);
+      }
+    }
+
+    streamingTextRef.current.clear();
+  }, []);
+
+  const updateAssistantMessage = React.useCallback(
+    (id: string, updates: Pick<ChatUiMessage, "content" | "status">) => {
+      setMessages((current) =>
+        current.map((message) => (message.id === id ? { ...message, ...updates } : message))
+      );
+    },
+    []
+  );
+
+  const scheduleStreamingText = React.useCallback(
+    (id: string) => {
+      const state = streamingTextRef.current.get(id);
+
+      if (!state || state.timeout) {
+        return;
+      }
+
+      state.timeout = setTimeout(() => {
+        const current = streamingTextRef.current.get(id);
+
+        if (!current) {
+          return;
+        }
+
+        current.timeout = null;
+
+        if (!current.target.startsWith(current.visible)) {
+          current.visible = "";
+        }
+
+        if (current.visible.length < current.target.length) {
+          const nextLength = Math.min(
+            current.target.length,
+            current.visible.length + STREAM_CHARS_PER_TICK
+          );
+          current.visible = current.target.slice(0, nextLength);
+          updateAssistantMessage(id, {
+            content: current.visible,
+            status: current.status
+          });
+        }
+
+        if (current.visible.length < current.target.length) {
+          scheduleStreamingText(id);
+          return;
+        }
+
+        updateAssistantMessage(id, {
+          content: current.target,
+          status: current.status
+        });
+        current.finish?.();
+        streamingTextRef.current.delete(id);
+      }, STREAM_TICK_MS);
+    },
+    [updateAssistantMessage]
+  );
+
+  const queueAssistantText = React.useCallback(
+    (id: string, target: string) => {
+      const state = streamingTextRef.current.get(id) ?? {
+        status: "streaming",
+        target: "",
+        timeout: null,
+        visible: messagesRef.current.find((message) => message.id === id)?.content ?? ""
+      };
+
+      state.status = "streaming";
+      state.target = target;
+      streamingTextRef.current.set(id, state);
+      scheduleStreamingText(id);
+    },
+    [scheduleStreamingText]
+  );
+
+  const finishAssistantText = React.useCallback(
+    (id: string, target: string, nextStatus: NonNullable<ChatUiMessage["status"]>) =>
+      new Promise<void>((resolve) => {
+        const state = streamingTextRef.current.get(id) ?? {
+          status: nextStatus,
+          target: "",
+          timeout: null,
+          visible: messagesRef.current.find((message) => message.id === id)?.content ?? ""
+        };
+
+        state.finish = resolve;
+        state.status = nextStatus;
+        state.target = target;
+        streamingTextRef.current.set(id, state);
+        scheduleStreamingText(id);
+
+        if (state.visible === state.target && !state.timeout) {
+          updateAssistantMessage(id, {
+            content: state.target,
+            status: nextStatus
+          });
+          streamingTextRef.current.delete(id);
+          resolve();
+        }
+      }),
+    [scheduleStreamingText, updateAssistantMessage]
+  );
+
+  React.useEffect(
+    () => () => clearStreamingText(),
+    [clearStreamingText]
+  );
 
   const sendMessage = React.useCallback(
     async (content: string) => {
@@ -64,6 +202,7 @@ export function useChatController({
       const apiMessages = toApiMessages([...messagesRef.current, userMessage]);
       const assistantId = assistantMessage.id;
       const fallbackMessages: string[] = [];
+      let toolSummaryMessage: string | null = null;
 
       setMessages((current) => [...current, userMessage, assistantMessage]);
       setStatus("streaming");
@@ -90,10 +229,7 @@ export function useChatController({
         await readChatSse(response.body, async (event) => {
           if (event.type === "text_delta") {
             assistantText += event.text;
-            updateAssistantMessage(assistantId, {
-              content: guardAssistantText(assistantText).text,
-              status: "streaming"
-            });
+            queueAssistantText(assistantId, guardAssistantStreamingText(assistantText).text);
             return;
           }
 
@@ -107,18 +243,22 @@ export function useChatController({
               supabase
             });
             onToolResult?.(result);
+            setToolStatus(null);
             const fallback = getToolResultMessage(result);
 
             if (fallback) {
               fallbackMessages.push(fallback);
             }
 
+            if (isFilterSummaryResult(result)) {
+              toolSummaryMessage = fallback;
+              assistantText = fallback ?? assistantText;
+              queueAssistantText(assistantId, guardAssistantStructuredText(assistantText).text);
+            }
+
             if (result.status === "metric_explained") {
               assistantText = joinAssistantText(assistantText, result.message);
-              updateAssistantMessage(assistantId, {
-                content: guardAssistantText(assistantText).text,
-                status: "streaming"
-              });
+              queueAssistantText(assistantId, guardAssistantStreamingText(assistantText).text);
             }
             return;
           }
@@ -128,46 +268,42 @@ export function useChatController({
           }
         });
 
-        const finalAssistantText = assistantText.trim()
-          ? guardAssistantText(assistantText).text
-          : fallbackMessages[0] ?? "";
+        const finalAssistantText = toolSummaryMessage
+          ? guardAssistantStructuredText(toolSummaryMessage).text
+          : assistantText.trim()
+            ? guardAssistantText(assistantText).text
+            : fallbackMessages[0] ?? "";
 
-        updateAssistantMessage(assistantId, {
-          content: finalAssistantText || "Done. Check the results table for the latest screen.",
-          status: "complete"
-        });
-        setStatus("idle");
         setToolStatus(null);
+        await finishAssistantText(
+          assistantId,
+          finalAssistantText || "Done. Check the results table for the latest screen.",
+          "complete"
+        );
+        setStatus("idle");
       } catch (sendError) {
         const message =
           sendError instanceof Error ? sendError.message : "Unable to continue this chat.";
         setError(message);
-        updateAssistantMessage(assistantId, {
-          content: "I could not complete that request. Please try again.",
-          status: "error"
-        });
+        await finishAssistantText(
+          assistantId,
+          "I could not complete that request. Please try again.",
+          "error"
+        );
         setStatus("error");
         setToolStatus(null);
       }
     },
-    [fetcher, onToolResult, status, storage, supabase]
+    [fetcher, finishAssistantText, onToolResult, queueAssistantText, status, storage, supabase]
   );
 
   const reset = React.useCallback(() => {
+    clearStreamingText();
     setMessages([]);
     setStatus("idle");
     setToolStatus(null);
     setError(null);
-  }, []);
-
-  function updateAssistantMessage(
-    id: string,
-    updates: Pick<ChatUiMessage, "content" | "status">
-  ) {
-    setMessages((current) =>
-      current.map((message) => (message.id === id ? { ...message, ...updates } : message))
-    );
-  }
+  }, [clearStreamingText]);
 
   return {
     error,
@@ -283,7 +419,7 @@ function getToolStatusLabel(toolName: string): string {
 function getToolResultMessage(result: ChatToolExecutionResult): string | null {
   switch (result.status) {
     case "filters_applied":
-      return "Applied filters. The results table is updated.";
+      return buildAppliedFiltersMessage(result.filters);
     case "filters_cleared":
       return "Cleared filters. Start a new screen when you are ready.";
     case "metric_explained":
@@ -295,7 +431,7 @@ function getToolResultMessage(result: ChatToolExecutionResult): string | null {
     case "invalid_name":
       return "Use a short name before saving this screen. Saved screen names keep your filters easy to reload.";
     case "loaded":
-      return `Loaded ${result.savedName}. The results table is updated.`;
+      return buildLoadedFiltersMessage(result.savedName ?? "saved screen", result.filters ?? {});
     case "not_found":
       return result.availableNames?.length
         ? `I could not find that saved screen. Available screens: ${result.availableNames.join(", ")}.`
@@ -315,6 +451,10 @@ function joinAssistantText(current: string, next: string): string {
   }
 
   return `${current.trim()}\n\n${next}`;
+}
+
+function isFilterSummaryResult(result: ChatToolExecutionResult): boolean {
+  return result.status === "filters_applied" || result.status === "loaded";
 }
 
 function createMessageId(prefix: string): string {

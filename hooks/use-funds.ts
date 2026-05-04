@@ -107,7 +107,7 @@ export function buildFundsQueryString(filters: FilterState): string {
   }
 
   params.set("page", "1");
-  params.set("pageSize", "25");
+  params.set("pageSize", String(filters.limit ?? 25));
 
   return params.toString();
 }
