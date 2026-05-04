@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getAuthCallbackUrl, getAuthHomeUrl } from "@/lib/auth-redirect";
+import { getAuthCallbackUrl, getAuthHomeUrl, getRootAuthCallbackPath } from "@/lib/auth-redirect";
 
 describe("auth redirect URLs", () => {
   const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -46,5 +46,16 @@ describe("auth redirect URLs", () => {
     expect(getAuthCallbackUrl("http://localhost:3000")).toBe(
       "http://localhost:3000/auth/callback"
     );
+  });
+
+  it("routes root callback codes through the auth callback endpoint", () => {
+    expect(getRootAuthCallbackPath({ code: "abc 123" })).toBe("/auth/callback?code=abc+123");
+    expect(getRootAuthCallbackPath(new URLSearchParams("code=xyz"))).toBe(
+      "/auth/callback?code=xyz"
+    );
+  });
+
+  it("does not route root requests without callback codes", () => {
+    expect(getRootAuthCallbackPath({})).toBeNull();
   });
 });

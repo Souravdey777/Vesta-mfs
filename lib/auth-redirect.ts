@@ -1,10 +1,26 @@
 export const AUTH_CALLBACK_PATH = "/auth/callback";
 
+type SearchParams = Record<string, string | string[] | undefined> | URLSearchParams;
+
 export function getAuthCallbackUrl(currentOrigin?: string) {
   return buildUrl(
     AUTH_CALLBACK_PATH,
     getSiteOrigin(currentOrigin ?? getBrowserOrigin())
   ).toString();
+}
+
+export function getRootAuthCallbackPath(searchParams: SearchParams) {
+  const code = readSearchParam(searchParams, "code");
+
+  if (!code) {
+    return null;
+  }
+
+  const callbackSearchParams = new URLSearchParams({
+    code
+  });
+
+  return `${AUTH_CALLBACK_PATH}?${callbackSearchParams.toString()}`;
 }
 
 export function getAuthHomeUrl(requestUrl: string) {
@@ -43,6 +59,16 @@ function normalizeOrigin(value: string | undefined) {
   } catch {
     return null;
   }
+}
+
+function readSearchParam(searchParams: SearchParams, key: string) {
+  if (searchParams instanceof URLSearchParams) {
+    return searchParams.get(key);
+  }
+
+  const value = searchParams[key];
+
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
 
 function getBrowserOrigin() {
