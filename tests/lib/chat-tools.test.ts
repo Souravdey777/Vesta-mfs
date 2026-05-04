@@ -6,7 +6,8 @@ import { FILTER_CATEGORIES, METRIC_NAMES, PLAN_TYPES, SORT_FIELDS, SORT_ORDERS }
 
 describe("chat prompt and tool definitions", () => {
   it("contains the canonical safety and UX rules", () => {
-    expect(MF_SCREENER_SYSTEM_PROMPT).toContain("Never type specific scheme or fund names");
+    expect(MF_SCREENER_SYSTEM_PROMPT).toContain("Never invent scheme or fund names");
+    expect(MF_SCREENER_SYSTEM_PROMPT).toContain("CURRENT UI CONTEXT");
     expect(MF_SCREENER_SYSTEM_PROMPT).toContain("translate it into apply_filters");
     expect(MF_SCREENER_SYSTEM_PROMPT).toContain("top N");
     expect(MF_SCREENER_SYSTEM_PROMPT).toContain("Every chat response must be two to four sentences");

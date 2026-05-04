@@ -77,7 +77,7 @@ describe("funds route", () => {
         funds: [SAMPLE_FUND],
         total: 1,
         page: 1,
-        pageSize: 5,
+        pageSize: 10,
         pageCount: 1,
         filters: {
           category: "Large Cap",

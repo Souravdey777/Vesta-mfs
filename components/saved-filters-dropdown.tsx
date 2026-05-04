@@ -316,12 +316,7 @@ export function SavedFiltersDropdown({ supabase: suppliedSupabase, storage: supp
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-80">
-          <DropdownMenuLabel className="flex items-center justify-between gap-3">
-            <span>Saved screens</span>
-            <span className="rounded-sm bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              {savedFiltersSource === "supabase" ? "Supabase" : "Anonymous"}
-            </span>
-          </DropdownMenuLabel>
+          <DropdownMenuLabel>Saved screens</DropdownMenuLabel>
           <DropdownMenuSeparator />
 
           {hasActiveFilters ? (

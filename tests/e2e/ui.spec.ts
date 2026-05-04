@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { expect, test, type Page } from "@playwright/test";
 
 const sampleFund = {
@@ -39,6 +41,8 @@ const sampleCategoryBenchmark = {
 };
 
 test.beforeEach(async ({ page }) => {
+  await installAuthenticatedSession(page);
+
   await page.route("**/api/chat", async (route) => {
     await route.fulfill({
       body: [
@@ -56,7 +60,9 @@ test.beforeEach(async ({ page }) => {
     const category = url.searchParams.get("category");
     const limit = Number(url.searchParams.get("limit") ?? 0);
     const minReturns = Number(url.searchParams.get("min_returns_3y") ?? 0);
+    const order = url.searchParams.get("order") ?? "desc";
     const pageSize = Number(url.searchParams.get("pageSize") ?? 25);
+    const sortBy = url.searchParams.get("sort_by") ?? "returns_3y";
     const funds = category === "Large Cap" && minReturns <= 15 ? [sampleFund] : [];
 
     await route.fulfill({
@@ -71,8 +77,8 @@ test.beforeEach(async ({ page }) => {
             category,
             limit: limit || undefined,
             min_returns_3y: minReturns,
-            order: "desc",
-            sort_by: "returns_3y"
+            order,
+            sort_by: sortBy
           },
           page: 1,
           pageCount: funds.length > 0 ? 1 : 0,
@@ -94,7 +100,7 @@ test("screens large-cap funds from chat and updates the table", async ({ page })
 
     const url = new URL(request.url());
 
-    return url.searchParams.get("limit") === "5" && url.searchParams.get("pageSize") === "5";
+    return url.searchParams.get("limit") === "5" && url.searchParams.get("pageSize") === "25";
   });
 
   await sendChatMessage(page, "top 5 large cap funds with >15% 3-year returns");
@@ -119,6 +125,25 @@ test("screens large-cap funds from chat and updates the table", async ({ page })
   await expect(
     page.locator('[role="tooltip"]').filter({ hasText: "Assets under management, shown in crores." }).last()
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "Close" }).click();
+  const sortedFundsRequest = page.waitForRequest((request) => {
+    if (!request.url().includes("/api/funds?")) {
+      return false;
+    }
+
+    const url = new URL(request.url());
+
+    return (
+      url.searchParams.get("limit") === "5" &&
+      url.searchParams.get("pageSize") === "25" &&
+      url.searchParams.get("sort_by") === "expense_ratio" &&
+      url.searchParams.get("order") === "asc"
+    );
+  });
+
+  await page.getByRole("button", { name: /^Expense$/ }).click();
+  await sortedFundsRequest;
 });
 
 test("mobile chat can switch to filtered results", async ({ page }) => {
@@ -145,4 +170,80 @@ async function sendChatMessage(page: Page, message: string) {
   await input.click();
   await page.keyboard.type(message);
   await sendButton.click();
+}
+
+async function installAuthenticatedSession(page: Page) {
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
+  const session = {
+    access_token: "test-access-token",
+    expires_at: expiresAt,
+    refresh_token: "test-refresh-token",
+    token_type: "bearer",
+    user: {
+      app_metadata: {},
+      aud: "authenticated",
+      created_at: "2026-05-01T00:00:00.000Z",
+      email: "investor@example.com",
+      id: "11111111-1111-1111-1111-111111111111",
+      role: "authenticated",
+      user_metadata: {}
+    }
+  };
+  const storageKey = getSupabaseStorageKey();
+  const value = `base64-${Buffer.from(JSON.stringify(session), "utf8").toString("base64url")}`;
+
+  await page.context().addCookies([
+    {
+      expires: expiresAt,
+      httpOnly: false,
+      name: storageKey,
+      sameSite: "Lax",
+      secure: false,
+      url: "http://127.0.0.1:3000",
+      value
+    }
+  ]);
+
+  await page.route("**/auth/v1/user", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      status: 200,
+      body: JSON.stringify(session.user)
+    });
+  });
+
+  await page.route("**/rest/v1/saved_filters**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      status: 200,
+      body: JSON.stringify([])
+    });
+  });
+}
+
+function getSupabaseStorageKey() {
+  const supabaseUrl = getSupabaseUrl();
+  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+
+  return `sb-${projectRef}-auth-token`;
+}
+
+function getSupabaseUrl() {
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL;
+  }
+
+  try {
+    const envLocal = readFileSync(".env.local", "utf8");
+    const match = envLocal.match(/^NEXT_PUBLIC_SUPABASE_URL=(.+)$/m);
+    const value = match?.[1]?.trim().replace(/^["']|["']$/g, "");
+
+    if (value) {
+      return value;
+    }
+  } catch {
+    // The app itself will surface missing Supabase env in environments that need it.
+  }
+
+  return "https://test-project.supabase.co";
 }

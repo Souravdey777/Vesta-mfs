@@ -117,7 +117,7 @@ describe("funds query parsing", () => {
     expect(issues.map((issue) => issue.path)).toEqual(expect.arrayContaining(["page", "pageSize"]));
   });
 
-  it("uses limit as the effective page size", () => {
+  it("keeps limit as a top-N cap without overriding page size", () => {
     const params = expectValidFundsQuery({
       limit: "5",
       pageSize: "25",
@@ -128,7 +128,7 @@ describe("funds query parsing", () => {
       limit: 5,
       sort_by: "returns_3y"
     });
-    expect(params.pageSize).toBe(5);
+    expect(params.pageSize).toBe(25);
 
     const issues = expectInvalidFundsQuery({
       limit: "101"
@@ -263,8 +263,8 @@ describe("funds Supabase query", () => {
       ],
       funds: [SAMPLE_FUND],
       total: 1,
-      page: 2,
-      pageSize: 5,
+      page: 1,
+      pageSize: 10,
       pageCount: 1,
       zeroState: null
     });
@@ -289,7 +289,7 @@ describe("funds Supabase query", () => {
       "order:aum_cr:desc:nulls_last",
       "order:scheme_name:asc:nulls_last",
       "order:scheme_code:asc:nulls_last",
-      "range:5:9",
+      "range:0:4",
       "from:funds",
       "select:exact",
       "eq:category:Large Cap",

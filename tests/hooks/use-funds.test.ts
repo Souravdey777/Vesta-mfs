@@ -15,7 +15,7 @@ describe("funds hook helpers", () => {
     ).toBe("category=Large+Cap&min_returns_3y=15&min_sharpe_ratio=1&sort_by=returns_3y&order=desc&page=1&pageSize=25");
   });
 
-  it("uses limit as the first-page page size", () => {
+  it("keeps top-N limit separate from page size", () => {
     expect(
       buildFundsQueryString({
         category: "Large Cap",
@@ -23,7 +23,7 @@ describe("funds hook helpers", () => {
         sort_by: "returns_3y",
         order: "desc"
       })
-    ).toBe("category=Large+Cap&limit=5&sort_by=returns_3y&order=desc&page=1&pageSize=5");
+    ).toBe("category=Large+Cap&limit=5&sort_by=returns_3y&order=desc&page=1&pageSize=25");
   });
 
   it("includes the requested page in query params", () => {
@@ -39,6 +39,6 @@ describe("funds hook helpers", () => {
           page: 2
         }
       )
-    ).toBe("category=Large+Cap&limit=5&sort_by=returns_3y&order=desc&page=2&pageSize=5");
+    ).toBe("category=Large+Cap&limit=5&sort_by=returns_3y&order=desc&page=2&pageSize=25");
   });
 });

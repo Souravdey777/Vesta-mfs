@@ -146,14 +146,28 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
 
   if (session?.user) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1">
-        <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
-        <span className="max-w-[150px] truncate text-xs text-muted-foreground">
-          {session.user.email ?? "Signed in"}
-        </span>
-        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => void handleSignOut()}>
+      <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 shadow-sm">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+            <UserRound className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-medium leading-4 text-foreground">Signed in</p>
+            <p className="truncate text-xs leading-4 text-muted-foreground">
+              {session.user.email ?? "Account active"}
+            </p>
+          </div>
+        </div>
+        <Button
+          aria-label="Sign out"
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+          onClick={() => void handleSignOut()}
+          size="icon"
+          title="Sign out"
+          type="button"
+          variant="ghost"
+        >
           <LogOut className="h-4 w-4" aria-hidden="true" />
-          Sign out
         </Button>
       </div>
     );
@@ -162,6 +176,7 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
   return (
     <>
       <Button
+        className="h-10 w-full justify-start px-3"
         size="sm"
         variant="outline"
         onClick={() => {

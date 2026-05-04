@@ -138,7 +138,7 @@ export function buildFundsQueryString(
   }
 
   params.set("page", String(normalizePage(page)));
-  params.set("pageSize", String(filters.limit ?? 25));
+  params.set("pageSize", "25");
 
   return params.toString();
 }

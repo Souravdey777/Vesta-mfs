@@ -237,14 +237,13 @@ export function parseFundsQuery(searchParams: URLSearchParams): FundsQueryParseR
   const data = parsed.data;
   const filters = buildFilterState(data);
   const sort = resolveFundsSort(filters);
-  const pageSize = filters.limit ?? data.pageSize;
 
   return {
     ok: true,
     params: {
       filters,
       page: data.page,
-      pageSize,
+      pageSize: data.pageSize,
       sort
     }
   };
@@ -274,28 +273,71 @@ export async function queryFunds(
       nullsFirst: false
     });
 
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  const { data, count, error } = await query.range(from, to);
+  const range = getFundsPageRange({
+    limit: filters.limit,
+    page,
+    pageSize
+  });
+  const { data, count, error } = await query.range(range.from, range.to);
 
   if (error) {
     throw new FundsQueryError("query", "Supabase funds query failed.", error);
   }
 
   const funds = data ?? [];
-  const total = count ?? funds.length;
+  const totalMatches = count ?? funds.length;
+  const total = getEffectiveTotal(totalMatches, filters.limit);
   const categoryBenchmarks = await queryCategoryBenchmarksForFunds(supabase, funds);
 
   return {
     funds,
     categoryBenchmarks,
     total,
-    page,
+    page: range.page,
     pageSize,
     pageCount: total === 0 ? 0 : Math.ceil(total / pageSize),
     filters,
-    zeroState: total === 0 ? buildZeroState(filters) : null
+    zeroState: totalMatches === 0 ? buildZeroState(filters) : null
   };
+}
+
+function getFundsPageRange({
+  limit,
+  page,
+  pageSize
+}: {
+  limit: number | undefined;
+  page: number;
+  pageSize: number;
+}): {
+  from: number;
+  page: number;
+  to: number;
+} {
+  const requestedFrom = (page - 1) * pageSize;
+
+  if (limit === undefined) {
+    return {
+      from: requestedFrom,
+      page,
+      to: requestedFrom + pageSize - 1
+    };
+  }
+
+  const lastPage = Math.max(1, Math.ceil(limit / pageSize));
+  const effectivePage = Math.min(page, lastPage);
+  const from = (effectivePage - 1) * pageSize;
+  const to = Math.min(from + pageSize - 1, limit - 1);
+
+  return {
+    from,
+    page: effectivePage,
+    to
+  };
+}
+
+function getEffectiveTotal(totalMatches: number, limit: number | undefined): number {
+  return limit === undefined ? totalMatches : Math.min(totalMatches, limit);
 }
 
 async function queryCategoryBenchmarksForFunds(

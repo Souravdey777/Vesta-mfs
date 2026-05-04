@@ -6,7 +6,7 @@ import {
   ChevronRight,
   RefreshCw,
   SearchX,
-  SlidersHorizontal
+  Table2
 } from "lucide-react";
 
 import { FilterChips } from "@/components/filter-chips";
@@ -33,7 +33,7 @@ export function FundResults({ fundsResult, showSavedFilters = true }: FundResult
     <section className="flex min-h-[calc(100vh-8rem)] flex-col rounded-lg border border-border bg-card lg:h-full lg:min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          <Table2 className="h-4 w-4" aria-hidden="true" />
           Results
           {fundsResult.data ? (
             <span className="rounded-sm bg-muted px-2 py-0.5 text-xs">
