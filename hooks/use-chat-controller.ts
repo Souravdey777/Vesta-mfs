@@ -12,16 +12,19 @@ import {
   buildLoadedFiltersMessage
 } from "@/lib/chat-filter-explanations";
 import {
+  type ChatGuardrailOptions,
   guardAssistantStreamingText,
   guardAssistantStructuredText,
   guardAssistantText
 } from "@/lib/chat-guardrails";
-import type { ChatMessage, ChatSseEvent } from "@/lib/types";
+import { getAllowedFundNamesFromUiContext } from "@/lib/chat-ui-context";
+import type { ChatMessage, ChatSseEvent, ChatUiContext } from "@/lib/types";
 import type { ChatStreamStatus, ChatToolStatus, ChatUiMessage } from "@/lib/ui-types";
 
 type UseChatControllerOptions = ChatToolExecutorOptions & {
   fetcher?: typeof fetch;
   onToolResult?: (result: ChatToolExecutionResult) => void;
+  uiContext?: ChatUiContext;
 };
 
 type StreamingTextState = {
@@ -48,7 +51,8 @@ export function useChatController({
   fetcher = fetch,
   onToolResult,
   storage,
-  supabase
+  supabase,
+  uiContext
 }: UseChatControllerOptions = {}): UseChatControllerResult {
   const [messages, setMessages] = React.useState<ChatUiMessage[]>([]);
   const [status, setStatus] = React.useState<ChatStreamStatus>("idle");
@@ -56,6 +60,12 @@ export function useChatController({
   const [error, setError] = React.useState<string | null>(null);
   const messagesRef = React.useRef<ChatUiMessage[]>([]);
   const streamingTextRef = React.useRef(new Map<string, StreamingTextState>());
+  const guardrailOptions = React.useMemo<ChatGuardrailOptions>(
+    () => ({
+      allowedFundNames: getAllowedFundNamesFromUiContext(uiContext)
+    }),
+    [uiContext]
+  );
 
   React.useEffect(() => {
     messagesRef.current = messages;
@@ -212,7 +222,8 @@ export function useChatController({
       try {
         const response = await fetcher("/api/chat", {
           body: JSON.stringify({
-            messages: apiMessages
+            messages: apiMessages,
+            uiContext
           }),
           headers: {
             "content-type": "application/json"
@@ -229,7 +240,10 @@ export function useChatController({
         await readChatSse(response.body, async (event) => {
           if (event.type === "text_delta") {
             assistantText += event.text;
-            queueAssistantText(assistantId, guardAssistantStreamingText(assistantText).text);
+            queueAssistantText(
+              assistantId,
+              guardAssistantStreamingText(assistantText, guardrailOptions).text
+            );
             return;
           }
 
@@ -253,12 +267,18 @@ export function useChatController({
             if (isFilterSummaryResult(result)) {
               toolSummaryMessage = fallback;
               assistantText = fallback ?? assistantText;
-              queueAssistantText(assistantId, guardAssistantStructuredText(assistantText).text);
+              queueAssistantText(
+                assistantId,
+                guardAssistantStructuredText(assistantText, guardrailOptions).text
+              );
             }
 
             if (result.status === "metric_explained") {
               assistantText = joinAssistantText(assistantText, result.message);
-              queueAssistantText(assistantId, guardAssistantStreamingText(assistantText).text);
+              queueAssistantText(
+                assistantId,
+                guardAssistantStreamingText(assistantText, guardrailOptions).text
+              );
             }
             return;
           }
@@ -269,9 +289,9 @@ export function useChatController({
         });
 
         const finalAssistantText = toolSummaryMessage
-          ? guardAssistantStructuredText(toolSummaryMessage).text
+          ? guardAssistantStructuredText(toolSummaryMessage, guardrailOptions).text
           : assistantText.trim()
-            ? guardAssistantText(assistantText).text
+            ? guardAssistantText(assistantText, guardrailOptions).text
             : fallbackMessages[0] ?? "";
 
         setToolStatus(null);
@@ -294,7 +314,17 @@ export function useChatController({
         setToolStatus(null);
       }
     },
-    [fetcher, finishAssistantText, onToolResult, queueAssistantText, status, storage, supabase]
+    [
+      fetcher,
+      finishAssistantText,
+      guardrailOptions,
+      onToolResult,
+      queueAssistantText,
+      status,
+      storage,
+      supabase,
+      uiContext
+    ]
   );
 
   const reset = React.useCallback(() => {

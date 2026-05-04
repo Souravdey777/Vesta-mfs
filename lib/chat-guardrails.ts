@@ -6,6 +6,10 @@ export type ChatGuardrailResult = {
   text: string;
 };
 
+export type ChatGuardrailOptions = {
+  allowedFundNames?: readonly string[];
+};
+
 const SAFE_SCREENING_FALLBACK =
   "I updated the screen using structured filters. Check the results table for fund names and metrics.";
 const SAFE_ADVICE_FALLBACK =
@@ -34,8 +38,12 @@ const GENERIC_FUND_PHRASES = new Set([
   "regular plan"
 ]);
 
-export function guardAssistantText(text: string): ChatGuardrailResult {
+export function guardAssistantText(
+  text: string,
+  options: ChatGuardrailOptions = {}
+): ChatGuardrailResult {
   const normalizedText = normalizeWhitespace(text);
+  const allowedFundNames = normalizeAllowedFundNames(options.allowedFundNames);
 
   if (!normalizedText) {
     return {
@@ -53,7 +61,7 @@ export function guardAssistantText(text: string): ChatGuardrailResult {
     };
   }
 
-  if (containsGeneratedFundName(normalizedText)) {
+  if (containsGeneratedFundName(normalizedText, allowedFundNames)) {
     return {
       changed: true,
       reason: "fund_name",
@@ -86,8 +94,12 @@ export function guardAssistantText(text: string): ChatGuardrailResult {
   };
 }
 
-export function guardAssistantStreamingText(text: string): ChatGuardrailResult {
+export function guardAssistantStreamingText(
+  text: string,
+  options: ChatGuardrailOptions = {}
+): ChatGuardrailResult {
   const normalizedText = normalizeWhitespace(text);
+  const allowedFundNames = normalizeAllowedFundNames(options.allowedFundNames);
 
   if (!normalizedText) {
     return {
@@ -105,7 +117,7 @@ export function guardAssistantStreamingText(text: string): ChatGuardrailResult {
     };
   }
 
-  if (containsGeneratedFundName(normalizedText)) {
+  if (containsGeneratedFundName(normalizedText, allowedFundNames)) {
     return {
       changed: true,
       reason: "fund_name",
@@ -130,9 +142,13 @@ export function guardAssistantStreamingText(text: string): ChatGuardrailResult {
   };
 }
 
-export function guardAssistantStructuredText(text: string): ChatGuardrailResult {
+export function guardAssistantStructuredText(
+  text: string,
+  options: ChatGuardrailOptions = {}
+): ChatGuardrailResult {
   const structuredText = normalizeStructuredWhitespace(text);
   const scanText = normalizeWhitespace(structuredText);
+  const allowedFundNames = normalizeAllowedFundNames(options.allowedFundNames);
 
   if (!scanText) {
     return {
@@ -150,7 +166,7 @@ export function guardAssistantStructuredText(text: string): ChatGuardrailResult 
     };
   }
 
-  if (containsGeneratedFundName(scanText)) {
+  if (containsGeneratedFundName(scanText, allowedFundNames)) {
     return {
       changed: true,
       reason: "fund_name",
@@ -169,14 +185,14 @@ function containsAdvice(text: string): boolean {
   return ADVICE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-function containsGeneratedFundName(text: string): boolean {
+function containsGeneratedFundName(text: string, allowedFundNames: ReadonlySet<string>): boolean {
   FUND_NAME_PATTERN.lastIndex = 0;
   let match = FUND_NAME_PATTERN.exec(text);
 
   while (match) {
     const normalizedMatch = normalizeWhitespace(match[0]).toLowerCase();
 
-    if (!GENERIC_FUND_PHRASES.has(normalizedMatch)) {
+    if (!GENERIC_FUND_PHRASES.has(normalizedMatch) && !allowedFundNames.has(normalizedMatch)) {
       return true;
     }
 
@@ -184,6 +200,10 @@ function containsGeneratedFundName(text: string): boolean {
   }
 
   return false;
+}
+
+function normalizeAllowedFundNames(names: readonly string[] | undefined): ReadonlySet<string> {
+  return new Set((names ?? []).map((name) => normalizeWhitespace(name).toLowerCase()));
 }
 
 function splitSentences(text: string): string[] {

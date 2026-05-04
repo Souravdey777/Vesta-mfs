@@ -132,6 +132,51 @@ export type FundsQueryData = {
   zeroState: FundsZeroState | null;
 };
 
+export type ChatVisibleFund = Pick<
+  FundRow,
+  | "scheme_code"
+  | "scheme_name"
+  | "fund_house"
+  | "category"
+  | "plan_type"
+  | "nav"
+  | "aum_cr"
+  | "expense_ratio"
+  | "returns_1y"
+  | "returns_3y"
+  | "returns_5y"
+  | "rolling_returns_3y"
+  | "sharpe_ratio"
+  | "standard_deviation"
+  | "beta"
+  | "upside_capture_ratio"
+  | "downside_capture_ratio"
+  | "rating"
+  | "min_sip"
+  | "exit_load"
+  | "updated_at"
+> & {
+  returns_3y_vs_category: number | null;
+};
+
+export type ChatUiContext = {
+  filters: FilterState;
+  results: {
+    error?: string | null;
+    page?: number;
+    pageCount?: number;
+    pageSize?: number;
+    status: "idle" | "loading" | "success" | "error";
+    total?: number;
+    visibleFunds: ChatVisibleFund[];
+    visibleRange?: {
+      end: number;
+      start: number;
+    };
+    zeroState?: FundsZeroState | null;
+  };
+};
+
 export type SavedFilterRecord = {
   filters: FilterState;
   created_at: string;
@@ -195,6 +240,7 @@ export type ChatMessage = {
 
 export type ChatRequest = {
   messages: ChatMessage[];
+  uiContext?: ChatUiContext;
 };
 
 export type ChatToolCall = {

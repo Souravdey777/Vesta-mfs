@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/chat/route";
 import { getChatResponse, writeChatSseStream, type RawChatStreamEvent } from "@/lib/server/chat-route";
-import type { ChatSseEvent } from "@/lib/types";
+import type { ChatSseEvent, ChatUiContext } from "@/lib/types";
 
 const ORIGINAL_ENV = process.env;
 
@@ -87,6 +87,34 @@ describe("chat route", () => {
     ]);
     expect(body).not.toContain("content_block_delta");
     expect(body).not.toContain("input_json_delta");
+  });
+
+  it("passes current UI context to the model and allows visible fund names", async () => {
+    let capturedSystem = "";
+    const response = await getChatResponse(
+      validChatRequest("which visible fund has the lowest expense?", sampleUiContext),
+      {
+        createStream: async (params) => {
+          capturedSystem = params.system;
+
+          return mockAnthropicStream([
+            textDelta(
+              "HDFC Large Cap Direct Growth is visible in the table. Its expense ratio comes from the current UI context."
+            )
+          ]);
+        },
+        logger: silentLogger
+      }
+    );
+    const body = await response.text();
+    const events = parseSseEvents(body);
+
+    expect(capturedSystem).toContain("CURRENT UI CONTEXT");
+    expect(capturedSystem).toContain("HDFC Large Cap Direct Growth");
+    expect(events).toContainEqual({
+      type: "text_delta",
+      text: "HDFC Large Cap Direct Growth is visible in the table. Its expense ratio comes from the current UI context."
+    });
   });
 
   it("emits sanitized errors for invalid streamed tool calls", async () => {
@@ -176,7 +204,7 @@ describe("chat route", () => {
   });
 });
 
-function validChatRequest(content: string) {
+function validChatRequest(content: string, uiContext?: ChatUiContext) {
   return new Request("http://localhost/api/chat", {
     method: "POST",
     body: JSON.stringify({
@@ -185,7 +213,8 @@ function validChatRequest(content: string) {
           role: "user",
           content
         }
-      ]
+      ],
+      uiContext
     })
   });
 }
@@ -283,6 +312,51 @@ function parseSseEvents(text: string): ChatSseEvent[] {
       return JSON.parse(dataLine.slice("data: ".length)) as ChatSseEvent;
     });
 }
+
+const sampleUiContext: ChatUiContext = {
+  filters: {
+    category: "Large Cap",
+    min_returns_3y: 15
+  },
+  results: {
+    page: 1,
+    pageCount: 1,
+    pageSize: 25,
+    status: "success",
+    total: 1,
+    visibleFunds: [
+      {
+        aum_cr: 15000,
+        beta: 0.92,
+        category: "Large Cap",
+        downside_capture_ratio: 84.8,
+        exit_load: "1% if redeemed within 1 year",
+        expense_ratio: 0.72,
+        fund_house: "HDFC",
+        min_sip: 500,
+        nav: 123.45,
+        plan_type: "Direct",
+        rating: 5,
+        returns_1y: 18.2,
+        returns_3y: 16.4,
+        returns_3y_vs_category: 1.4,
+        returns_5y: 14.1,
+        rolling_returns_3y: 15.9,
+        scheme_code: "100001",
+        scheme_name: "HDFC Large Cap Direct Growth",
+        sharpe_ratio: 1.05,
+        standard_deviation: 12.7,
+        updated_at: "2026-05-01T00:00:00.000Z",
+        upside_capture_ratio: 96.3
+      }
+    ],
+    visibleRange: {
+      end: 1,
+      start: 1
+    },
+    zeroState: null
+  }
+};
 
 const silentLogger = {
   error: () => undefined

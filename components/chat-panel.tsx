@@ -6,7 +6,7 @@ import { ArrowRight, Loader2, RotateCcw, Search, Send, SlidersHorizontal } from 
 import { ChatAuthCta } from "@/components/chat-auth-cta";
 import { Button } from "@/components/ui/button";
 import type { UseChatControllerResult } from "@/hooks/use-chat-controller";
-import type { FilterState } from "@/lib/types";
+import type { FilterCategory, FilterState } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type ChatPanelProps = {
@@ -21,6 +21,28 @@ type ChatPanelProps = {
 type RefinementSuggestion = {
   label: string;
   prompt: string;
+};
+
+const RETURN_5Y_FLOOR_BY_CATEGORY: Partial<Record<FilterCategory, number>> = {
+  Debt: 7,
+  ELSS: 12,
+  "Flexi Cap": 12,
+  Hybrid: 10,
+  Index: 10,
+  "Large Cap": 12,
+  "Mid Cap": 14,
+  "Small Cap": 14
+};
+
+const EXPENSE_CAP_BY_CATEGORY: Partial<Record<FilterCategory, number>> = {
+  Debt: 0.5,
+  ELSS: 1,
+  "Flexi Cap": 1,
+  Hybrid: 1,
+  Index: 0.3,
+  "Large Cap": 1,
+  "Mid Cap": 1,
+  "Small Cap": 1.25
 };
 
 export function ChatPanel({
@@ -272,39 +294,43 @@ export function getRefinementSuggestions(filters?: FilterState | null): Refineme
     }
   };
   const isTaxSavingScreen = filters.category === "ELSS";
+  const expenseCap = getExpenseCap(filters.category);
+  const returns5yFloor = getReturns5yFloor(filters.category);
 
   addSuggestion(
     {
-      label: isTaxSavingScreen ? "Direct ELSS plans" : "Direct plans only",
+      label: isTaxSavingScreen ? "Direct ELSS only" : "Direct plans only",
       prompt: isTaxSavingScreen
-        ? "Refine this screen to direct ELSS plans only."
-        : "Refine this screen to direct plans only."
+        ? buildRefinementPrompt("add a plan type filter for Direct ELSS plans")
+        : buildRefinementPrompt("add a plan type filter for Direct plans")
     },
     filters.plan_type === "Direct"
   );
 
   addSuggestion(
     {
-      label: "Expense under 1%",
-      prompt: "Add an expense ratio cap under 1%."
+      label: `Expense <= ${formatCompactPercent(expenseCap)}`,
+      prompt: buildRefinementPrompt(
+        `add an expense ratio cap of ${formatCompactPercent(expenseCap)} or lower`
+      )
     },
-    filters.max_expense_ratio !== undefined && filters.max_expense_ratio <= 1
+    filters.max_expense_ratio !== undefined && filters.max_expense_ratio <= expenseCap
   );
 
   addSuggestion(
     {
-      label: "5Y consistency",
-      prompt: isTaxSavingScreen
-        ? "Also require tax-saving funds with at least 12% 5-year returns."
-        : "Also require at least 12% 5-year returns."
+      label: `5Y >= ${formatCompactPercent(returns5yFloor)}`,
+      prompt: buildRefinementPrompt(
+        `require at least ${formatCompactPercent(returns5yFloor)} 5-year returns`
+      )
     },
-    filters.min_returns_5y !== undefined
+    filters.min_returns_5y !== undefined && filters.min_returns_5y >= returns5yFloor
   );
 
   addSuggestion(
     {
-      label: "Sharpe above 1",
-      prompt: "Prefer funds with Sharpe ratio above 1."
+      label: "Sharpe >= 1",
+      prompt: buildRefinementPrompt("require Sharpe ratio of at least 1")
     },
     filters.min_sharpe_ratio !== undefined && filters.min_sharpe_ratio >= 1
   );
@@ -312,20 +338,42 @@ export function getRefinementSuggestions(filters?: FilterState | null): Refineme
   addSuggestion(
     {
       label: "Lower volatility",
-      prompt: "Sort this screen by lower standard deviation."
+      prompt: buildRefinementPrompt(
+        "rank the same matching funds by lower standard deviation first"
+      )
     },
     filters.sort_by === "standard_deviation"
   );
 
   addSuggestion(
     {
-      label: "Top 10 funds",
-      prompt: "Show only the top 10 funds for this screen."
+      label: "Top 10 rows",
+      prompt: filters.sort_by
+        ? buildRefinementPrompt("limit the current ranked screen to the top 10 rows")
+        : buildRefinementPrompt(
+            "show the top 10 rows ranked by 3-year returns from highest to lowest"
+          )
     },
     filters.limit === 10
   );
 
   return suggestions.slice(0, 4);
+}
+
+function buildRefinementPrompt(action: string): string {
+  return `Use the current UI context as the base screen, keep every existing filter, and ${action}.`;
+}
+
+function getExpenseCap(category?: FilterCategory): number {
+  return category ? (EXPENSE_CAP_BY_CATEGORY[category] ?? 1) : 1;
+}
+
+function getReturns5yFloor(category?: FilterCategory): number {
+  return category ? (RETURN_5Y_FLOOR_BY_CATEGORY[category] ?? 12) : 12;
+}
+
+function formatCompactPercent(value: number): string {
+  return `${Number.isInteger(value) ? value : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`;
 }
 
 function AssistantMessageContent({ content }: { content: string }) {

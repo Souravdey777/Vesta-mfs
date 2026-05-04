@@ -57,6 +57,21 @@ describe("chat guardrails", () => {
     expect(result.text).not.toContain("HDFC Top 100 Fund");
   });
 
+  it("allows visible UI context fund names", () => {
+    expect(
+      guardAssistantText(
+        "HDFC Large Cap Direct Growth is visible in the table. Its metrics come from the current UI context.",
+        {
+          allowedFundNames: ["HDFC Large Cap Direct Growth"]
+        }
+      )
+    ).toEqual({
+      changed: false,
+      reason: null,
+      text: "HDFC Large Cap Direct Growth is visible in the table. Its metrics come from the current UI context."
+    });
+  });
+
   it("allows generic category and plan phrases", () => {
     expect(
       guardAssistantText("I filtered for ELSS Fund screens. Direct Plan rows can appear in the table.")

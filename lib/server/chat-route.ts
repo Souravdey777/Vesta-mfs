@@ -1,12 +1,116 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { guardAssistantText } from "@/lib/chat-guardrails";
+import { guardAssistantText, type ChatGuardrailOptions } from "@/lib/chat-guardrails";
+import {
+  buildUiContextSystemPrompt,
+  getAllowedFundNamesFromUiContext,
+  MAX_CHAT_VISIBLE_FUNDS
+} from "@/lib/chat-ui-context";
 import { CHAT_TOOL_DEFINITIONS, parseChatToolCall } from "@/lib/chat-tools";
 import { MF_SCREENER_SYSTEM_PROMPT } from "@/lib/prompts";
-import type { ChatMessage, ChatSseEvent } from "@/lib/types";
+import {
+  FILTER_CATEGORIES,
+  FUND_CATEGORIES,
+  MAX_RESULT_LIMIT,
+  MIN_RESULT_LIMIT,
+  PLAN_TYPES,
+  SORT_FIELDS,
+  SORT_ORDERS
+} from "@/lib/types";
+import type { ChatMessage, ChatSseEvent, ChatUiContext } from "@/lib/types";
 
 export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+
+const nullableNumberSchema = z.number().finite().nullable();
+const filterStateSchema = z
+  .object({
+    category: z.enum(FILTER_CATEGORIES).optional(),
+    fund_house: z.string().trim().min(1).max(120).optional(),
+    limit: z.number().int().min(MIN_RESULT_LIMIT).max(MAX_RESULT_LIMIT).optional(),
+    max_beta: z.number().finite().optional(),
+    max_downside_capture_ratio: z.number().finite().optional(),
+    max_expense_ratio: z.number().finite().optional(),
+    max_standard_deviation: z.number().finite().optional(),
+    min_aum_cr: z.number().finite().optional(),
+    min_rating: z.number().int().min(1).max(5).optional(),
+    min_returns_1y: z.number().finite().optional(),
+    min_returns_3y: z.number().finite().optional(),
+    min_returns_5y: z.number().finite().optional(),
+    min_rolling_returns_3y: z.number().finite().optional(),
+    min_sharpe_ratio: z.number().finite().optional(),
+    min_upside_capture_ratio: z.number().finite().optional(),
+    order: z.enum(SORT_ORDERS).optional(),
+    plan_type: z.enum(PLAN_TYPES).optional(),
+    sort_by: z.enum(SORT_FIELDS).optional()
+  })
+  .strict();
+const visibleFundSchema = z
+  .object({
+    aum_cr: nullableNumberSchema,
+    beta: nullableNumberSchema,
+    category: z.enum(FUND_CATEGORIES),
+    downside_capture_ratio: nullableNumberSchema,
+    exit_load: z.string().max(500).nullable(),
+    expense_ratio: nullableNumberSchema,
+    fund_house: z.string().trim().min(1).max(160),
+    min_sip: nullableNumberSchema,
+    nav: z.number().finite(),
+    plan_type: z.enum(PLAN_TYPES),
+    rating: z.number().int().min(1).max(5).nullable(),
+    returns_1y: nullableNumberSchema,
+    returns_3y: nullableNumberSchema,
+    returns_3y_vs_category: nullableNumberSchema,
+    returns_5y: nullableNumberSchema,
+    rolling_returns_3y: nullableNumberSchema,
+    scheme_code: z.string().trim().min(1).max(64),
+    scheme_name: z.string().trim().min(1).max(240),
+    sharpe_ratio: nullableNumberSchema,
+    standard_deviation: nullableNumberSchema,
+    updated_at: z.string().trim().min(1).max(80),
+    upside_capture_ratio: nullableNumberSchema
+  })
+  .strict();
+const zeroStateSchema = z
+  .object({
+    message: z.string().trim().min(1).max(500),
+    reason: z.literal("no_matches"),
+    suggestions: z
+      .array(
+        z
+          .object({
+            label: z.string().trim().min(1).max(140),
+            removeFilter: z.string().trim().min(1).max(80)
+          })
+          .strict()
+      )
+      .max(10)
+  })
+  .strict();
+const chatUiContextSchema = z
+  .object({
+    filters: filterStateSchema,
+    results: z
+      .object({
+        error: z.string().trim().min(1).max(500).nullable().optional(),
+        page: z.number().int().min(0).optional(),
+        pageCount: z.number().int().min(0).optional(),
+        pageSize: z.number().int().min(1).max(100).optional(),
+        status: z.enum(["idle", "loading", "success", "error"]),
+        total: z.number().int().min(0).optional(),
+        visibleFunds: z.array(visibleFundSchema).max(MAX_CHAT_VISIBLE_FUNDS),
+        visibleRange: z
+          .object({
+            end: z.number().int().min(0),
+            start: z.number().int().min(0)
+          })
+          .strict()
+          .optional(),
+        zeroState: zeroStateSchema.nullable().optional()
+      })
+      .strict()
+  })
+  .strict();
 
 const chatRequestSchema = z.object({
   messages: z
@@ -17,7 +121,8 @@ const chatRequestSchema = z.object({
       })
     )
     .min(1)
-    .max(50)
+    .max(50),
+  uiContext: chatUiContextSchema.optional()
 });
 
 type RawToolUseStartBlock = {
@@ -85,14 +190,19 @@ type PendingToolBlock = {
 
 export function buildAnthropicChatRequest(
   messages: ChatMessage[],
-  model = process.env.ANTHROPIC_MODEL ?? DEFAULT_ANTHROPIC_MODEL
+  model = process.env.ANTHROPIC_MODEL ?? DEFAULT_ANTHROPIC_MODEL,
+  uiContext?: ChatUiContext
 ): AnthropicChatRequest {
+  const uiContextPrompt = buildUiContextSystemPrompt(uiContext);
+
   return {
     max_tokens: 700,
     messages,
     model,
     stream: true,
-    system: MF_SCREENER_SYSTEM_PROMPT,
+    system: uiContextPrompt
+      ? `${MF_SCREENER_SYSTEM_PROMPT}\n\n${uiContextPrompt}`
+      : MF_SCREENER_SYSTEM_PROMPT,
     temperature: 0.2,
     tool_choice: {
       type: "auto"
@@ -120,10 +230,12 @@ export async function getChatResponse(request: Request, options: ChatRouteOption
   }
 
   let rawStream: RawChatStream;
+  const uiContext = parsed.data.uiContext as ChatUiContext | undefined;
+  const guardrailOptions = buildGuardrailOptions(uiContext);
 
   try {
     rawStream = await options.createStream(
-      buildAnthropicChatRequest(parsed.data.messages, options.model)
+      buildAnthropicChatRequest(parsed.data.messages, options.model, uiContext)
     );
   } catch (error) {
     const logger = options.logger ?? console;
@@ -142,6 +254,7 @@ export async function getChatResponse(request: Request, options: ChatRouteOption
     async start(controller) {
       await writeChatSseStream(rawStream, {
         enqueue: (event) => controller.enqueue(encodeSse(event)),
+        guardrailOptions,
         logger: options.logger ?? console
       });
       controller.close();
@@ -162,9 +275,11 @@ export async function writeChatSseStream(
   rawStream: RawChatStream,
   {
     enqueue,
+    guardrailOptions,
     logger = console
   }: {
     enqueue: (event: ChatSseEvent) => void;
+    guardrailOptions?: ChatGuardrailOptions;
     logger?: Pick<Console, "error">;
   }
 ) {
@@ -202,7 +317,7 @@ export async function writeChatSseStream(
               `${pendingTextBlocks.get(event.index) ?? ""}${event.delta.text}`
             );
           } else {
-            emitGuardedTextDelta(event.delta.text, enqueue);
+            emitGuardedTextDelta(event.delta.text, enqueue, guardrailOptions);
           }
         }
 
@@ -216,7 +331,7 @@ export async function writeChatSseStream(
         const pendingTool = pendingTools.get(event.index);
 
         if (pendingText !== undefined) {
-          emitGuardedTextDelta(pendingText, enqueue);
+          emitGuardedTextDelta(pendingText, enqueue, guardrailOptions);
           pendingTextBlocks.delete(event.index);
         }
 
@@ -228,7 +343,7 @@ export async function writeChatSseStream(
     }
 
     for (const pendingText of pendingTextBlocks.values()) {
-      emitGuardedTextDelta(pendingText, enqueue);
+      emitGuardedTextDelta(pendingText, enqueue, guardrailOptions);
     }
 
     enqueue({
@@ -243,8 +358,12 @@ export async function writeChatSseStream(
   }
 }
 
-function emitGuardedTextDelta(text: string, enqueue: (event: ChatSseEvent) => void) {
-  const guarded = guardAssistantText(text);
+function emitGuardedTextDelta(
+  text: string,
+  enqueue: (event: ChatSseEvent) => void,
+  guardrailOptions: ChatGuardrailOptions = {}
+) {
+  const guarded = guardAssistantText(text, guardrailOptions);
 
   if (!guarded.text) {
     return;
@@ -254,6 +373,12 @@ function emitGuardedTextDelta(text: string, enqueue: (event: ChatSseEvent) => vo
     type: "text_delta",
     text: guarded.text
   });
+}
+
+function buildGuardrailOptions(uiContext?: ChatUiContext): ChatGuardrailOptions {
+  return {
+    allowedFundNames: getAllowedFundNamesFromUiContext(uiContext)
+  };
 }
 
 function emitCompletedToolCall(

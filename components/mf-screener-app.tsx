@@ -16,16 +16,17 @@ import {
 } from "@/components/ui/dialog";
 import { useChatController } from "@/hooks/use-chat-controller";
 import { useFunds } from "@/hooks/use-funds";
+import { buildChatUiContext } from "@/lib/chat-ui-context";
 import { useFiltersStore } from "@/lib/store/filters";
 import type { ChatToolExecutionResult } from "@/lib/chat-tool-executor";
 import type { MobileView } from "@/lib/ui-types";
 import { cn } from "@/lib/utils";
 
 const starterPrompts = [
-  "Show me tax-saving funds with strong 3-year returns",
-  "Find large cap direct plans with expense ratio under 1%",
-  "I want stable funds for retirement",
-  "Large cap funds with >15% 3-year returns"
+  "Screen ELSS direct plans with 3Y returns >= 14% and expense <= 1%",
+  "Find low-cost index funds with AUM above 1000 Cr, sorted by expense",
+  "Show large-cap direct funds with 3Y returns >= 15% and Sharpe >= 1",
+  "Find mid-cap funds with rating 4+, 3Y returns >= 18%, downside capture <= 100"
 ];
 
 export function MfScreenerApp() {
@@ -35,12 +36,23 @@ export function MfScreenerApp() {
   const fundsResult = useFunds(filters, {
     enabled: hasActiveFilters
   });
+  const chatUiContext = React.useMemo(
+    () =>
+      buildChatUiContext({
+        filters,
+        fundsData: fundsResult.data,
+        fundsError: fundsResult.error,
+        fundsStatus: fundsResult.status
+      }),
+    [filters, fundsResult.data, fundsResult.error, fundsResult.status]
+  );
   const chat = useChatController({
     onToolResult: (result) => {
       if (shouldRefreshResults(result)) {
         fundsResult.refetch();
       }
-    }
+    },
+    uiContext: chatUiContext
   });
 
   const submitStarterPrompt = React.useCallback(

@@ -9,7 +9,7 @@ import { FundTable } from "@/components/fund-table";
 import { MfScreenerApp } from "@/components/mf-screener-app";
 import type { UseFundsResult } from "@/hooks/use-funds";
 import { resetFiltersStoreForTests, useFiltersStore } from "@/lib/store/filters";
-import type { CategoryBenchmark, FundRow, FundsQueryData } from "@/lib/types";
+import type { CategoryBenchmark, ChatUiContext, FundRow, FundsQueryData } from "@/lib/types";
 
 describe("MF Screener UI", () => {
   beforeEach(() => {
@@ -45,7 +45,24 @@ describe("MF Screener UI", () => {
         order: "desc",
         sort_by: "returns_3y"
       }).map((suggestion) => suggestion.label)
-    ).toEqual(["Direct ELSS plans", "Expense under 1%", "5Y consistency", "Sharpe above 1"]);
+    ).toEqual(["Direct ELSS only", "Expense <= 1%", "5Y >= 12%", "Sharpe >= 1"]);
+  });
+
+  it("builds screen-aware refinement prompts", () => {
+    const suggestions = getRefinementSuggestions({
+      category: "Debt",
+      sort_by: "returns_3y"
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.label)).toEqual([
+      "Direct plans only",
+      "Expense <= 0.5%",
+      "5Y >= 7%",
+      "Sharpe >= 1"
+    ]);
+    expect(suggestions[1].prompt).toBe(
+      "Use the current UI context as the base screen, keep every existing filter, and add an expense ratio cap of 0.5% or lower."
+    );
   });
 
   it("submits starter prompts, streams text, executes tool calls, and renders fund rows", async () => {
@@ -98,7 +115,9 @@ describe("MF Screener UI", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<MfScreenerApp />);
-    fireEvent.click(screen.getByText("Large cap funds with >15% 3-year returns"));
+    fireEvent.click(
+      screen.getByText("Show large-cap direct funds with 3Y returns >= 15% and Sharpe >= 1")
+    );
 
     expect(await screen.findByText("Applied filters")).toBeInTheDocument();
     expect(screen.getByText("Category: Large Cap")).toBeInTheDocument();
@@ -115,7 +134,7 @@ describe("MF Screener UI", () => {
       await screen.findByRole("button", { name: "Refine filters: Direct plans only" })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Refine filters: Expense under 1%" })
+      screen.getByRole("button", { name: "Refine filters: Expense <= 1%" })
     ).toBeInTheDocument();
     expect(await screen.findByText("HDFC Large Cap Direct Growth")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
@@ -124,6 +143,69 @@ describe("MF Screener UI", () => {
         method: "POST"
       })
     );
+  });
+
+  it("sends visible result context with follow-up chat messages", async () => {
+    useFiltersStore.getState().applyFilters({
+      category: "Large Cap",
+      order: "desc",
+      sort_by: "returns_3y"
+    });
+    const chatBodies: Array<{
+      uiContext?: ChatUiContext;
+    }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/chat")) {
+        chatBodies.push(JSON.parse(String(init?.body)) as { uiContext?: ChatUiContext });
+
+        return createSseResponse([
+          {
+            type: "text_delta",
+            text: "HDFC Large Cap Direct Growth is visible in the table. Its metrics come from the current UI context."
+          },
+          {
+            type: "done"
+          }
+        ]);
+      }
+
+      if (url.includes("/api/funds")) {
+        return Response.json({
+          ok: true,
+          data: createFundsData(
+            [sampleFund],
+            {
+              category: "Large Cap",
+              order: "desc",
+              sort_by: "returns_3y"
+            },
+            null,
+            [sampleCategoryBenchmark]
+          )
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<MfScreenerApp />);
+
+    expect(await screen.findByText("HDFC Large Cap Direct Growth")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: {
+        value: "What is visible here?"
+      }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(chatBodies).toHaveLength(1));
+    expect(chatBodies[0].uiContext?.results.visibleFunds[0]).toMatchObject({
+      scheme_name: "HDFC Large Cap Direct Growth",
+      returns_3y_vs_category: 1.4
+    });
   });
 
   it("removes filter chips and clears all filters", () => {
