@@ -6,6 +6,7 @@ import { Loader2, LockKeyhole, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getMagicLinkErrorMessage } from "@/lib/auth-messages";
 import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
@@ -112,15 +113,20 @@ export function AuthGate({ children, supabase: suppliedSupabase }: AuthGateProps
     setIsSubmitting(true);
 
     try {
+      const emailRedirectTo = getAuthCallbackUrl();
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: getAuthCallbackUrl()
+          emailRedirectTo
         }
       });
 
       if (error) {
-        setMessage("Could not send the sign-in link.");
+        console.error("Supabase magic link request failed", {
+          emailRedirectTo,
+          message: error.message
+        });
+        setMessage(getMagicLinkErrorMessage(error));
         return;
       }
 

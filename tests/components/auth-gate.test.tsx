@@ -64,11 +64,39 @@ describe("AuthGate", () => {
     );
     expect(await screen.findByText("Check your email for the sign-in link.")).toBeInTheDocument();
   });
+
+  it("shows the Supabase magic-link error when email sending fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const signInWithOtp = vi.fn(async () => ({
+      error: {
+        message: "Email rate limit exceeded"
+      }
+    }));
+
+    render(
+      <AuthGate supabase={createAuthClient(null, signInWithOtp)}>
+        <div>Protected screener</div>
+      </AuthGate>
+    );
+
+    fireEvent.change(await screen.findByLabelText("Email"), {
+      target: {
+        value: "investor@example.com"
+      }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send magic link" }));
+
+    expect(
+      await screen.findByText("Could not send the sign-in link: Email rate limit exceeded")
+    ).toBeInTheDocument();
+  });
 });
 
 function createAuthClient(
   session: Awaited<ReturnType<AuthGateSupabaseClient["auth"]["getSession"]>>["data"]["session"],
-  signInWithOtp = vi.fn(async () => ({ error: null }))
+  signInWithOtp: AuthGateSupabaseClient["auth"]["signInWithOtp"] = vi.fn(async () => ({
+    error: null
+  }))
 ): AuthGateSupabaseClient {
   return {
     auth: {
