@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthGate, type AuthGateSupabaseClient } from "@/components/auth-gate";
+import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 
 describe("AuthGate", () => {
   afterEach(() => {
@@ -57,7 +58,7 @@ describe("AuthGate", () => {
       expect(signInWithOtp).toHaveBeenCalledWith({
         email: "investor@example.com",
         options: {
-          emailRedirectTo: "http://localhost:3000/auth/callback"
+          emailRedirectTo: getAuthCallbackUrl()
         }
       })
     );

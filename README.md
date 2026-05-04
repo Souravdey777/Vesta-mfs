@@ -42,6 +42,7 @@ Open http://localhost:3000.
 ```bash
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=claude-sonnet-4-20250514
+NEXT_PUBLIC_SITE_URL=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -53,6 +54,7 @@ MF_DATA_API_BASE_URL=https://mfdata.in/api/v1
 `SUPABASE_SERVICE_ROLE_KEY` is server-only and should be used only for seed/admin scripts.
 `CRON_SECRET` protects the Vercel Cron refresh route.
 `ANTHROPIC_MODEL` is optional; the chat route defaults to Claude Sonnet 4 if it is omitted.
+`NEXT_PUBLIC_SITE_URL` is the canonical app origin used in Supabase magic-link redirects. Leave it blank locally unless you need to override the browser origin, and set it to the deployed production URL in Vercel.
 
 ## Scripts
 
@@ -166,7 +168,8 @@ In Supabase Auth settings:
 
 - Enable email OTP or magic-link sign-in.
 - Add `http://localhost:3000/auth/callback` to redirect URLs.
-- Add `https://<your-vercel-domain>/auth/callback` after deployment.
+- Set `NEXT_PUBLIC_SITE_URL=https://<your-vercel-domain>` in Vercel.
+- Add `https://<your-vercel-domain>/auth/callback` to redirect URLs after deployment.
 
 No profiles, KYC, brokerage identity, or full account management is required. Auth exists only to sync saved filters for logged-in users.
 
@@ -204,6 +207,7 @@ Set these environment variables in Vercel:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=https://<your-vercel-domain>
 SUPABASE_SERVICE_ROLE_KEY=
 CRON_SECRET=
 AMFI_NAV_URL=https://www.amfiindia.com/spages/NAVAll.txt

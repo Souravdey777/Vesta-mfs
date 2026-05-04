@@ -2,6 +2,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { getAuthHomeUrl } from "@/lib/auth-redirect";
+
 type AuthExchangeClient = {
   auth: {
     exchangeCodeForSession(code: string): Promise<{
@@ -19,7 +21,7 @@ export async function getAuthCallbackResponse(
   request: Request,
   options: AuthCallbackOptions = {}
 ) {
-  const response = NextResponse.redirect(new URL("/", request.url));
+  const response = NextResponse.redirect(getAuthHomeUrl(request.url));
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 

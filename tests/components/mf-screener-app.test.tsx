@@ -8,6 +8,7 @@ import { FundResults } from "@/components/fund-results";
 import { FundTable } from "@/components/fund-table";
 import { MfScreenerApp } from "@/components/mf-screener-app";
 import type { UseFundsResult } from "@/hooks/use-funds";
+import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { resetFiltersStoreForTests, useFiltersStore } from "@/lib/store/filters";
 import type { CategoryBenchmark, ChatUiContext, FundRow, FundsQueryData } from "@/lib/types";
 
@@ -539,7 +540,7 @@ describe("MF Screener UI", () => {
       expect(signInWithOtp).toHaveBeenCalledWith({
         email: "investor@example.com",
         options: {
-          emailRedirectTo: "http://localhost:3000/auth/callback"
+          emailRedirectTo: getAuthCallbackUrl()
         }
       })
     );

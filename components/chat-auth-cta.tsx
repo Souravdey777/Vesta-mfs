@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 type AuthUser = {
@@ -116,7 +117,7 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: getAuthCallbackUrl()
         }
       });
 
