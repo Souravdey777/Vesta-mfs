@@ -576,6 +576,44 @@ describe("MF Screener UI", () => {
 
     await waitFor(() => expect(signOut).toHaveBeenCalled());
   });
+
+  it("starts Google sign-in from the chat auth CTA", async () => {
+    const signInWithOAuth = vi.fn(async () => ({ error: null }));
+    const supabase: AuthSupabaseClient = {
+      auth: {
+        getSession: async () => ({
+          data: {
+            session: null
+          },
+          error: null
+        }),
+        onAuthStateChange: () => ({
+          data: {
+            subscription: {
+              unsubscribe: () => {}
+            }
+          }
+        }),
+        signInWithOtp: vi.fn(async () => ({ error: null })),
+        signInWithOAuth,
+        signOut: vi.fn(async () => ({ error: null }))
+      }
+    };
+
+    render(<ChatAuthCta supabase={supabase} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue with Google" }));
+
+    await waitFor(() =>
+      expect(signInWithOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: {
+          redirectTo: getAuthCallbackUrl()
+        }
+      })
+    );
+    expect(await screen.findByText("Redirecting to Google...")).toBeInTheDocument();
+  });
 });
 
 const sampleFund: FundRow = {

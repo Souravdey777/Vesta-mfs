@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { LogOut, Mail, UserRound } from "lucide-react";
+import { Chrome, Loader2, LogOut, Mail, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getMagicLinkErrorMessage } from "@/lib/auth-messages";
+import { getMagicLinkErrorMessage, getOAuthSignInErrorMessage } from "@/lib/auth-messages";
 import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
@@ -51,6 +51,14 @@ export type AuthSupabaseClient = {
     }): Promise<{
       error: { message: string } | null;
     }>;
+    signInWithOAuth?(input: {
+      provider: "google";
+      options: {
+        redirectTo: string;
+      };
+    }): Promise<{
+      error: { message: string } | null;
+    }>;
     signOut(): Promise<{
       error: { message: string } | null;
     }>;
@@ -68,6 +76,7 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [email, setEmail] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [session, setSession] = React.useState<AuthSession>(null);
 
@@ -138,6 +147,40 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setMessage(null);
+
+    if (!supabase?.auth.signInWithOAuth) {
+      setMessage("Google sign-in is unavailable in this environment.");
+      return;
+    }
+
+    setIsGoogleSubmitting(true);
+
+    try {
+      const redirectTo = getAuthCallbackUrl();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo
+        }
+      });
+
+      if (error) {
+        console.error("Supabase Google sign-in request failed", {
+          redirectTo,
+          message: error.message
+        });
+        setMessage(getOAuthSignInErrorMessage("Google", error));
+        return;
+      }
+
+      setMessage("Redirecting to Google...");
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
+  }
+
   async function handleSignOut() {
     if (!supabase) {
       return;
@@ -150,6 +193,8 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
       setMessage(null);
     }
   }
+
+  const isAuthActionPending = isSubmitting || isGoogleSubmitting;
 
   if (session?.user) {
     return (
@@ -200,14 +245,35 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
           <DialogHeader>
             <DialogTitle>Sign in to sync saved screens</DialogTitle>
             <DialogDescription>
-              We will send a magic link to your email. Your saved filters stay under your account.
+              Use Google or a magic link. Your saved filters stay under your account.
             </DialogDescription>
           </DialogHeader>
+          <div className="grid gap-3">
+            <Button
+              disabled={isAuthActionPending}
+              onClick={() => void handleGoogleSignIn()}
+              type="button"
+              variant="outline"
+            >
+              {isGoogleSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Chrome className="h-4 w-4" aria-hidden="true" />
+              )}
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+              <span>or use email</span>
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            </div>
+          </div>
           <form className="grid gap-4" onSubmit={(event) => void handleSignIn(event)}>
             <div className="grid gap-2">
               <Label htmlFor="auth-email">Email</Label>
               <Input
                 autoComplete="email"
+                disabled={isAuthActionPending}
                 id="auth-email"
                 inputMode="email"
                 onChange={(event) => setEmail(event.target.value)}
@@ -221,7 +287,12 @@ export function ChatAuthCta({ supabase: suppliedSupabase }: ChatAuthCtaProps) {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isAuthActionPending}>
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Mail className="h-4 w-4" aria-hidden="true" />
+                )}
                 Send link
               </Button>
             </DialogFooter>

@@ -94,7 +94,7 @@ If local anonymous saves exist after sign-in, the dropdown offers to sync them. 
 
 ## UI
 
-The home page is the working screener: chat drives tool calls, filters refresh `/api/funds`, chips can remove filters directly, and the fund table expands rows for return snapshots, advanced performance/risk metrics, and exit-load details. The chat panel includes Supabase magic-link sign-in; `/auth/callback` exchanges the link code and returns to the screener.
+The home page is the working screener: chat drives tool calls, filters refresh `/api/funds`, chips can remove filters directly, and the fund table expands rows for return snapshots, advanced performance/risk metrics, and exit-load details. The chat panel includes Supabase email magic-link and Google sign-in; `/auth/callback` exchanges the link or OAuth code and returns to the screener.
 
 ## Advanced Metrics
 
@@ -110,7 +110,7 @@ Supabase is the only application database. The project will use:
 
 - `public.funds` for fund screening data.
 - `public.saved_filters` for logged-in users' saved screens.
-- Supabase Auth for lightweight email OTP or magic-link sign-in.
+- Supabase Auth for lightweight email OTP, magic-link, or Google sign-in.
 - `localStorage` as the anonymous saved-filter fallback.
 
 ### 1. Create the hosted project
@@ -167,6 +167,7 @@ order by p.polname;
 In Supabase Auth settings:
 
 - Enable email OTP or magic-link sign-in.
+- Enable the Google provider and add the OAuth client ID/secret in the Supabase dashboard.
 - Add `http://localhost:3000/auth/callback` to redirect URLs.
 - Set `NEXT_PUBLIC_SITE_URL=https://<your-vercel-domain>` in Vercel.
 - Add `https://<your-vercel-domain>/auth/callback` to redirect URLs after deployment.

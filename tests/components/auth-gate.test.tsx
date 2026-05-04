@@ -65,6 +65,49 @@ describe("AuthGate", () => {
     expect(await screen.findByText("Check your email for the sign-in link.")).toBeInTheDocument();
   });
 
+  it("starts page-level Google sign-in", async () => {
+    const signInWithOAuth = vi.fn(async () => ({ error: null }));
+
+    render(
+      <AuthGate supabase={createAuthClient(null, undefined, signInWithOAuth)}>
+        <div>Protected screener</div>
+      </AuthGate>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Continue with Google" }));
+
+    await waitFor(() =>
+      expect(signInWithOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: {
+          redirectTo: getAuthCallbackUrl()
+        }
+      })
+    );
+    expect(await screen.findByText("Redirecting to Google...")).toBeInTheDocument();
+  });
+
+  it("shows the Supabase Google sign-in error when OAuth cannot start", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const signInWithOAuth = vi.fn(async () => ({
+      error: {
+        message: "provider is disabled"
+      }
+    }));
+
+    render(
+      <AuthGate supabase={createAuthClient(null, undefined, signInWithOAuth)}>
+        <div>Protected screener</div>
+      </AuthGate>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Continue with Google" }));
+
+    expect(
+      await screen.findByText("Could not start Google sign-in: provider is disabled")
+    ).toBeInTheDocument();
+  });
+
   it("shows the Supabase magic-link error when email sending fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const signInWithOtp = vi.fn(async () => ({
@@ -96,7 +139,12 @@ function createAuthClient(
   session: Awaited<ReturnType<AuthGateSupabaseClient["auth"]["getSession"]>>["data"]["session"],
   signInWithOtp: AuthGateSupabaseClient["auth"]["signInWithOtp"] = vi.fn(async () => ({
     error: null
-  }))
+  })),
+  signInWithOAuth: NonNullable<AuthGateSupabaseClient["auth"]["signInWithOAuth"]> = vi.fn(
+    async () => ({
+      error: null
+    })
+  )
 ): AuthGateSupabaseClient {
   return {
     auth: {
@@ -113,7 +161,8 @@ function createAuthClient(
           }
         }
       }),
-      signInWithOtp
+      signInWithOtp,
+      signInWithOAuth
     }
   };
 }

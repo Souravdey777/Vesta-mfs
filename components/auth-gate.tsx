@@ -1,12 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, LockKeyhole, Mail } from "lucide-react";
+import { Chrome, Loader2, LockKeyhole, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getMagicLinkErrorMessage } from "@/lib/auth-messages";
+import { getMagicLinkErrorMessage, getOAuthSignInErrorMessage } from "@/lib/auth-messages";
 import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
@@ -43,6 +43,14 @@ export type AuthGateSupabaseClient = {
     }): Promise<{
       error: { message: string } | null;
     }>;
+    signInWithOAuth?(input: {
+      provider: "google";
+      options: {
+        redirectTo: string;
+      };
+    }): Promise<{
+      error: { message: string } | null;
+    }>;
   };
 };
 
@@ -59,6 +67,7 @@ export function AuthGate({ children, supabase: suppliedSupabase }: AuthGateProps
   );
   const [email, setEmail] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<AuthGateStatus>("checking");
 
@@ -136,6 +145,42 @@ export function AuthGate({ children, supabase: suppliedSupabase }: AuthGateProps
     }
   }
 
+  async function handleGoogleSignIn() {
+    setMessage(null);
+
+    if (!supabase?.auth.signInWithOAuth) {
+      setMessage("Google sign-in is unavailable in this environment.");
+      return;
+    }
+
+    setIsGoogleSubmitting(true);
+
+    try {
+      const redirectTo = getAuthCallbackUrl();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo
+        }
+      });
+
+      if (error) {
+        console.error("Supabase Google sign-in request failed", {
+          redirectTo,
+          message: error.message
+        });
+        setMessage(getOAuthSignInErrorMessage("Google", error));
+        return;
+      }
+
+      setMessage("Redirecting to Google...");
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
+  }
+
+  const isAuthActionPending = isSubmitting || isGoogleSubmitting;
+
   if (status === "signed-in") {
     return <>{children}</>;
   }
@@ -166,11 +211,34 @@ export function AuthGate({ children, supabase: suppliedSupabase }: AuthGateProps
           </div>
         </div>
 
-        <form className="grid gap-4" onSubmit={(event) => void handleSignIn(event)}>
+        <div className="grid gap-4">
+          <Button
+            className="w-full"
+            disabled={isAuthActionPending}
+            onClick={() => void handleGoogleSignIn()}
+            type="button"
+            variant="outline"
+          >
+            {isGoogleSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Chrome className="h-4 w-4" aria-hidden="true" />
+            )}
+            Continue with Google
+          </Button>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            <span>or use email</span>
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          </div>
+        </div>
+
+        <form className="mt-4 grid gap-4" onSubmit={(event) => void handleSignIn(event)}>
           <div className="grid gap-2">
             <Label htmlFor="page-auth-email">Email</Label>
             <Input
               autoComplete="email"
+              disabled={isAuthActionPending}
               id="page-auth-email"
               inputMode="email"
               onChange={(event) => setEmail(event.target.value)}
@@ -180,7 +248,7 @@ export function AuthGate({ children, supabase: suppliedSupabase }: AuthGateProps
             />
           </div>
           {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-          <Button className="w-full" disabled={isSubmitting} type="submit">
+          <Button className="w-full" disabled={isAuthActionPending} type="submit">
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
